@@ -1,0 +1,465 @@
+@page "/transactions"
+@using MoneyFixClient.Models
+@using MoneyFixClient.Services
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Authorization
+@inject TransactionService TransactionService
+@inject CategoryService CategoryService
+@inject IJSRuntime JSRuntime
+@attribute [Authorize]
+
+<PageTitle>Transações - MoneyFix</PageTitle>
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>
+                    <i class="fas fa-exchange-alt text-primary me-2"></i>
+                    Gerenciar Transações
+                </h2>
+                <button class="btn btn-primary" @onclick="ShowCreateModal">
+                    <i class="fas fa-plus me-2"></i>
+                    Nova Transação
+                </button>
+            </div>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(alertMessage))
+    {
+        <div class="row">
+            <div class="col-12">
+                <div class="alert @(alertType == "success" ? "alert-success" : "alert-danger") alert-dismissible fade show" role="alert">
+                    <i class="fas @(alertType == "success" ? "fa-check-circle" : "fa-exclamation-triangle") me-2"></i>
+                    @alertMessage
+                    <button type="button" class="btn-close" @onclick="ClearAlert"></button>
+                </div>
+            </div>
+        </div>
+    }
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-list me-2"></i>
+                        Suas Transações
+                    </h5>
+                </div>
+                <div class="card-body">
+                    @if (isLoading)
+                    {
+                        <div class="text-center py-4">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Carregando...</span>
+                            </div>
+                            <p class="mt-2">Carregando transações...</p>
+                        </div>
+                    }
+                    else if (transactions.Any())
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Descrição</th>
+                                        <th>Valor</th>
+                                        <th>Data</th>
+                                        <th>Tipo</th>
+                                        <th>Categoria</th>
+                                        <th>Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var transaction in transactions.OrderByDescending(t => t.TransactionDate))
+                                    {
+                                        <tr>
+                                            <td>
+                                                <strong>@transaction.TransactionDescription</strong>
+                                                <br>
+                                                <small class="text-muted">ID: @transaction.Id[..8]...</small>
+                                            </td>
+                                            <td>
+                                                <span class="@(transaction.IsExpense ? "text-danger" : "text-success")">
+                                                    @(transaction.IsExpense ? "-" : "+")@transaction.TransactionAmount.ToString("C")
+                                                </span>
+                                            </td>
+                                            <td>@transaction.TransactionDate.ToString("dd/MM/yyyy HH:mm")</td>
+                                            <td>
+                                                <span class="badge @(transaction.IsExpense ? "bg-danger" : "bg-success")">
+                                                    @(transaction.IsExpense ? "Despesa" : "Receita")
+                                                </span>
+                                            </td>
+                                            <td>@transaction.CategoryName</td>
+                                            <td>
+                                                <div class="btn-group" role="group">
+                                                    <button class="btn btn-sm btn-outline-primary" @onclick="() => ShowEditModal(transaction)">
+                                                        <i class="fas fa-edit"></i>
+                                                    </button>
+                                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => ShowDeleteConfirmation(transaction)">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="text-center py-5">
+                            <i class="fas fa-exchange-alt fa-3x text-muted mb-3"></i>
+                            <h5 class="text-muted">Nenhuma transação encontrada</h5>
+                            <p class="text-muted">Crie sua primeira transação para começar a controlar suas finanças.</p>
+                            <button class="btn btn-primary" @onclick="ShowCreateModal">
+                                <i class="fas fa-plus me-2"></i>
+                                Criar Primeira Transação
+                            </button>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Criar/Editar Transação -->
+<div class="modal fade @(showTransactionModal ? "show d-block" : "")" tabindex="-1" style="@(showTransactionModal ? "background-color: rgba(0,0,0,0.5);" : "")">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas @(editingTransaction != null ? "fa-edit" : "fa-plus") text-primary me-2"></i>
+                    @(editingTransaction != null ? "Editar Transação" : "Nova Transação")
+                </h5>
+                <button type="button" class="btn-close" @onclick="HideTransactionModal"></button>
+            </div>
+            <EditForm Model="@transactionForm" OnValidSubmit="@SaveTransaction">
+                <DataAnnotationsValidator />
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <label for="description" class="form-label">Descrição</label>
+                            <InputText @bind-Value="transactionForm.TransactionDescription" 
+                                     class="form-control" 
+                                     id="description" 
+                                     placeholder="Ex: Almoço no restaurante, Salário, Gasolina..." />
+                            <ValidationMessage For="@(() => transactionForm.TransactionDescription)" class="text-danger" />
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="amount" class="form-label">Valor</label>
+                            <InputNumber @bind-Value="transactionForm.TransactionAmount" 
+                                       class="form-control" 
+                                       id="amount" 
+                                       step="0.01"
+                                       placeholder="0,00" />
+                            <ValidationMessage For="@(() => transactionForm.TransactionAmount)" class="text-danger" />
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="date" class="form-label">Data</label>
+                            <InputDate @bind-Value="transactionForm.TransactionDate" 
+                                     class="form-control" 
+                                     id="date" />
+                            <ValidationMessage For="@(() => transactionForm.TransactionDate)" class="text-danger" />
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="type" class="form-label">Tipo</label>
+                            <InputSelect @bind-Value="transactionForm.TransactionsType" class="form-select" id="type">
+                                <option value="1">Despesa</option>
+                                <option value="2">Receita</option>
+                            </InputSelect>
+                            <ValidationMessage For="@(() => transactionForm.TransactionsType)" class="text-danger" />
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="category" class="form-label">Categoria</label>
+                            <InputSelect @bind-Value="transactionForm.TransactionCategoryId" class="form-select" id="category">
+                                <option value="">Selecione uma categoria</option>
+                                @foreach (var category in categories)
+                                {
+                                    <option value="@category.Id">@category.Name</option>
+                                }
+                            </InputSelect>
+                            <ValidationMessage For="@(() => transactionForm.TransactionCategoryId)" class="text-danger" />
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="HideTransactionModal">
+                        <i class="fas fa-times me-2"></i>
+                        Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary" disabled="@isSaving">
+                        @if (isSaving)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                            <text>Salvando...</text>
+                        }
+                        else
+                        {
+                            <i class="fas fa-save me-2"></i>
+                            <text>@(editingTransaction != null ? "Atualizar" : "Criar") Transação</text>
+                        }
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Confirmação de Exclusão -->
+<div class="modal fade @(showDeleteModal ? "show d-block" : "")" tabindex="-1" style="@(showDeleteModal ? "background-color: rgba(0,0,0,0.5);" : "")">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-trash text-danger me-2"></i>
+                    Confirmar Exclusão
+                </h5>
+                <button type="button" class="btn-close" @onclick="HideDeleteModal"></button>
+            </div>
+            <div class="modal-body">
+                @if (transactionToDelete != null)
+                {
+                    <p>Tem certeza que deseja excluir a transação:</p>
+                    <div class="alert alert-warning">
+                        <strong>@transactionToDelete.TransactionDescription</strong><br>
+                        Valor: <strong>@transactionToDelete.TransactionAmount.ToString("C")</strong><br>
+                        Data: <strong>@transactionToDelete.TransactionDate.ToString("dd/MM/yyyy")</strong>
+                    </div>
+                    <p class="text-danger">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Esta ação não pode ser desfeita.
+                    </p>
+                }
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @onclick="HideDeleteModal">
+                    <i class="fas fa-times me-2"></i>
+                    Cancelar
+                </button>
+                <button type="button" class="btn btn-danger" @onclick="ConfirmDelete" disabled="@isDeleting">
+                    @if (isDeleting)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                        <text>Excluindo...</text>
+                    }
+                    else
+                    {
+                        <i class="fas fa-trash me-2"></i>
+                        <text>Excluir</text>
+                    }
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<Transaction> transactions = new();
+    private List<Category> categories = new();
+    private TransactionRequest transactionForm = new();
+    private Transaction? editingTransaction = null;
+    private Transaction? transactionToDelete = null;
+    
+    private bool isLoading = true;
+    private bool isSaving = false;
+    private bool isDeleting = false;
+    private bool showTransactionModal = false;
+    private bool showDeleteModal = false;
+    
+    private string alertMessage = string.Empty;
+    private string alertType = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            // Carrega transações e categorias em paralelo
+            var transactionsTask = TransactionService.GetTransactionsAsync();
+            var categoriesTask = CategoryService.GetCategoriesAsync();
+
+            await Task.WhenAll(transactionsTask, categoriesTask);
+
+            transactions = await transactionsTask;
+            categories = await categoriesTask;
+        }
+        catch (Exception ex)
+        {
+            ShowAlert($"Erro ao carregar dados: {ex.Message}", "error");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ShowCreateModal()
+    {
+        editingTransaction = null;
+        transactionForm = new TransactionRequest
+        {
+            TransactionDate = DateTime.Now,
+            TransactionsType = 1 // Despesa por padrão
+        };
+        showTransactionModal = true;
+        StateHasChanged();
+    }
+
+    private void ShowEditModal(Transaction transaction)
+    {
+        editingTransaction = transaction;
+        transactionForm = new TransactionRequest
+        {
+            TransactionDescription = transaction.TransactionDescription,
+            TransactionAmount = transaction.TransactionAmount,
+            TransactionDate = transaction.TransactionDate,
+            TransactionsType = transaction.TransactionsType,
+            TransactionCategoryId = transaction.TransactionCategoryId
+        };
+        showTransactionModal = true;
+        StateHasChanged();
+    }
+
+    private void HideTransactionModal()
+    {
+        showTransactionModal = false;
+        editingTransaction = null;
+        transactionForm = new TransactionRequest();
+        StateHasChanged();
+    }
+
+    private async Task SaveTransaction()
+    {
+        if (isSaving) return;
+
+        isSaving = true;
+        StateHasChanged();
+
+        try
+        {
+            TransactionResponse result;
+
+            if (editingTransaction != null)
+            {
+                // Atualizar transação existente
+                result = await TransactionService.UpdateTransactionAsync(editingTransaction.Id, transactionForm);
+            }
+            else
+            {
+                // Criar nova transação
+                result = await TransactionService.CreateTransactionAsync(transactionForm);
+            }
+
+            if (result.Success)
+            {
+                ShowAlert(result.Message, "success");
+                HideTransactionModal();
+                await LoadData(); // Recarrega a lista
+            }
+            else
+            {
+                ShowAlert(result.Message, "error");
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowAlert($"Erro ao salvar transação: {ex.Message}", "error");
+        }
+        finally
+        {
+            isSaving = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ShowDeleteConfirmation(Transaction transaction)
+    {
+        transactionToDelete = transaction;
+        showDeleteModal = true;
+        StateHasChanged();
+    }
+
+    private void HideDeleteModal()
+    {
+        showDeleteModal = false;
+        transactionToDelete = null;
+        StateHasChanged();
+    }
+
+    private async Task ConfirmDelete()
+    {
+        if (isDeleting || transactionToDelete == null) return;
+
+        isDeleting = true;
+        StateHasChanged();
+
+        try
+        {
+            var result = await TransactionService.DeleteTransactionAsync(transactionToDelete.Id);
+
+            if (result.Success)
+            {
+                ShowAlert(result.Message, "success");
+                HideDeleteModal();
+                await LoadData(); // Recarrega a lista
+            }
+            else
+            {
+                ShowAlert(result.Message, "error");
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowAlert($"Erro ao excluir transação: {ex.Message}", "error");
+        }
+        finally
+        {
+            isDeleting = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ShowAlert(string message, string type)
+    {
+        alertMessage = message;
+        alertType = type;
+        StateHasChanged();
+
+        // Auto-hide alert after 5 seconds
+        Task.Delay(5000).ContinueWith(_ => 
+        {
+            InvokeAsync(() => 
+            {
+                ClearAlert();
+                StateHasChanged();
+            });
+        });
+    }
+
+    private void ClearAlert()
+    {
+        alertMessage = string.Empty;
+        alertType = string.Empty;
+    }
+}
