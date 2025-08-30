@@ -177,7 +177,7 @@
                             <label for="type" class="form-label">Tipo</label>
                             <InputSelect @bind-Value="transactionForm.TransactionsType" class="form-select" id="type">
                                 <option value="1">Despesa</option>
-                                <option value="2">Receita</option>
+                                <option value="0">Receita</option>
                             </InputSelect>
                             <ValidationMessage For="@(() => transactionForm.TransactionsType)" class="text-danger" />
                         </div>
