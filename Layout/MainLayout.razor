@@ -1,0 +1,51 @@
+﻿@inherits LayoutComponentBase
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+
+<div class="page">
+    <div class="sidebar">
+        <NavMenu />
+    </div>
+
+    <main>
+        <div class="top-row px-4">
+            <AuthorizeView>
+                <Authorized>
+                    <div class="d-flex align-items-center">
+                        <span class="me-3">
+                            <i class="fas fa-user-circle me-1"></i>
+                            Olá, @GetUserName(context.User)!
+                        </span>
+                        <button class="btn btn-outline-danger btn-sm" @onclick="HandleLogout">
+                            <i class="fas fa-sign-out-alt me-1"></i>
+                            Sair
+                        </button>
+                    </div>
+                </Authorized>
+                <NotAuthorized>
+                    <a href="/login" class="btn btn-primary btn-sm">
+                        <i class="fas fa-sign-in-alt me-1"></i>
+                        Login
+                    </a>
+                </NotAuthorized>
+            </AuthorizeView>
+        </div>
+
+        <article class="content px-4">
+            @Body
+        </article>
+    </main>
+</div>
+
+@code {
+    private string GetUserName(System.Security.Claims.ClaimsPrincipal user)
+    {
+        return user?.Identity?.Name ?? user?.FindFirst("email")?.Value ?? "Usuário";
+    }
+
+    private async Task HandleLogout()
+    {
+        await AuthService.LogoutAsync();
+        Navigation.NavigateTo("/login");
+    }
+}

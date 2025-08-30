@@ -1,0 +1,213 @@
+@page "/dashboard"
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+
+<PageTitle>Dashboard - MoneyFix</PageTitle>
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>
+                    <i class="fas fa-chart-line text-primary me-2"></i>
+                    Dashboard
+                </h2>
+                <div>
+                    <span class="text-muted me-3">Bem-vindo!</span>
+                    <button class="btn btn-outline-danger btn-sm" @onclick="HandleLogout">
+                        <i class="fas fa-sign-out-alt me-1"></i>
+                        Sair
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-3 mb-4">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title">Receitas</h6>
+                            <h4>R$ 5.450,00</h4>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-arrow-up fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 mb-4">
+            <div class="card bg-danger text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title">Despesas</h6>
+                            <h4>R$ 3.280,00</h4>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-arrow-down fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 mb-4">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title">Saldo</h6>
+                            <h4>R$ 2.170,00</h4>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-wallet fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 mb-4">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title">Transações</h6>
+                            <h4>28</h4>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-exchange-alt fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-list me-2"></i>
+                        Últimas Transações
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Data</th>
+                                    <th>Descrição</th>
+                                    <th>Categoria</th>
+                                    <th>Valor</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>28/08/2025</td>
+                                    <td>Supermercado XYZ</td>
+                                    <td><span class="badge bg-warning">Alimentação</span></td>
+                                    <td><span class="text-danger">-R$ 150,00</span></td>
+                                </tr>
+                                <tr>
+                                    <td>27/08/2025</td>
+                                    <td>Salário</td>
+                                    <td><span class="badge bg-primary">Renda</span></td>
+                                    <td><span class="text-success">+R$ 3.500,00</span></td>
+                                </tr>
+                                <tr>
+                                    <td>26/08/2025</td>
+                                    <td>Gasolina</td>
+                                    <td><span class="badge bg-secondary">Transporte</span></td>
+                                    <td><span class="text-danger">-R$ 80,00</span></td>
+                                </tr>
+                                <tr>
+                                    <td>25/08/2025</td>
+                                    <td>Internet</td>
+                                    <td><span class="badge bg-info">Serviços</span></td>
+                                    <td><span class="text-danger">-R$ 89,90</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-pie me-2"></i>
+                        Categorias
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span>Alimentação</span>
+                            <span>35%</span>
+                        </div>
+                        <div class="progress">
+                            <div class="progress-bar bg-warning" style="width: 35%"></div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span>Transporte</span>
+                            <span>25%</span>
+                        </div>
+                        <div class="progress">
+                            <div class="progress-bar bg-secondary" style="width: 25%"></div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span>Serviços</span>
+                            <span>20%</span>
+                        </div>
+                        <div class="progress">
+                            <div class="progress-bar bg-info" style="width: 20%"></div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span>Outros</span>
+                            <span>20%</span>
+                        </div>
+                        <div class="progress">
+                            <div class="progress-bar bg-dark" style="width: 20%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="alert alert-info" role="alert">
+                <i class="fas fa-info-circle me-2"></i>
+                <strong>Área Protegida:</strong> Esta página só é acessível para usuários autenticados.
+                Os dados exibidos são exemplos e serão substituídos por dados reais da API.
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private async Task HandleLogout()
+    {
+        await AuthService.LogoutAsync();
+        Navigation.NavigateTo("/login");
+    }
+}

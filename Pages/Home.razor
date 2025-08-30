@@ -1,0 +1,86 @@
+﻿@page "/"
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+
+<PageTitle>MoneyFix</PageTitle>
+
+<div class="container text-center">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <h1 class="display-4 mb-4">
+                <i class="fas fa-wallet text-primary me-3"></i>
+                Bem-vindo ao MoneyFix
+            </h1>
+            
+            <p class="lead mb-4">
+                Gerencie suas finanças pessoais de forma simples e eficiente.
+                Controle suas receitas, despesas e acompanhe seus gastos com facilidade.
+            </p>
+
+            <AuthorizeView>
+                <Authorized>
+                    <div class="alert alert-success" role="alert">
+                        <i class="fas fa-check-circle me-2"></i>
+                        Você está logado! Redirecionando para o dashboard...
+                    </div>
+                </Authorized>
+                <NotAuthorized>
+                    <div class="mb-4">
+                        <h3>Principais Recursos:</h3>
+                        <div class="row mt-4">
+                            <div class="col-md-4 mb-3">
+                                <div class="card h-100">
+                                    <div class="card-body text-center">
+                                        <i class="fas fa-chart-line fa-3x text-primary mb-3"></i>
+                                        <h5>Dashboard Intuitivo</h5>
+                                        <p class="card-text">Visualize suas finanças com gráficos e relatórios claros.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <div class="card h-100">
+                                    <div class="card-body text-center">
+                                        <i class="fas fa-exchange-alt fa-3x text-success mb-3"></i>
+                                        <h5>Controle de Transações</h5>
+                                        <p class="card-text">Registre suas receitas e despesas facilmente.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <div class="card h-100">
+                                    <div class="card-body text-center">
+                                        <i class="fas fa-tags fa-3x text-warning mb-3"></i>
+                                        <h5>Categorização</h5>
+                                        <p class="card-text">Organize seus gastos por categorias personalizadas.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-4">
+                        <a href="/login" class="btn btn-primary btn-lg me-3">
+                            <i class="fas fa-sign-in-alt me-2"></i>
+                            Fazer Login
+                        </a>
+                        <a href="/dashboard" class="btn btn-outline-secondary btn-lg">
+                            <i class="fas fa-eye me-2"></i>
+                            Ver Demo
+                        </a>
+                    </div>
+                </NotAuthorized>
+            </AuthorizeView>
+        </div>
+    </div>
+</div>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        // Se o usuário está autenticado, redireciona para o dashboard
+        if (await AuthService.IsAuthenticatedAsync())
+        {
+            Navigation.NavigateTo("/dashboard");
+        }
+    }
+}

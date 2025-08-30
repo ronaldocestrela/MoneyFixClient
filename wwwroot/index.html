@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MoneyFix - Gerenciador Financeiro</title>
+    <base href="/" />
+    <link rel="stylesheet" href="lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+    <link rel="stylesheet" href="css/app.css" />
+    <link rel="icon" type="image/png" href="favicon.png" />
+    <link href="MoneyFixClient.styles.css" rel="stylesheet" />
+</head>
+
+<body>
+    <div id="app">
+        <div class="d-flex justify-content-center align-items-center" style="height: 100vh;">
+            <div class="text-center">
+                <i class="fas fa-wallet fa-3x text-primary mb-3"></i>
+                <h4>MoneyFix</h4>
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-2">Carregando aplicação...</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="blazor-error-ui">
+        <div class="alert alert-danger" role="alert">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            Ocorreu um erro não tratado.
+            <a href="." class="reload btn btn-sm btn-outline-danger ms-2">Recarregar</a>
+            <span class="dismiss">🗙</span>
+        </div>
+    </div>
+    <script src="_framework/blazor.webassembly.js"></script>
+</body>
+
+</html>

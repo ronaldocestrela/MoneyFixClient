@@ -1,0 +1,119 @@
+@page "/debug"
+@inject AuthService AuthService
+@inject Blazored.LocalStorage.ILocalStorageService LocalStorage
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Debug - Login</PageTitle>
+
+<div class="container">
+    <h2>Debug - Estado de Autenticação</h2>
+    
+    <div class="card mt-3">
+        <div class="card-header">
+            <h5>Informações de Debug</h5>
+        </div>
+        <div class="card-body">
+            <AuthorizeView>
+                <Authorized>
+                    <div class="alert alert-success">
+                        <strong>Usuário Autenticado:</strong> @context.User.Identity?.Name
+                    </div>
+                </Authorized>
+                <NotAuthorized>
+                    <div class="alert alert-warning">
+                        <strong>Usuário NÃO Autenticado</strong>
+                    </div>
+                </NotAuthorized>
+            </AuthorizeView>
+            
+            <div class="mt-3">
+                <button class="btn btn-primary" @onclick="CheckTokens">Verificar Tokens</button>
+                <button class="btn btn-warning ms-2" @onclick="ClearTokens">Limpar Tokens</button>
+                <button class="btn btn-success ms-2" @onclick="CheckAuth">Verificar Auth</button>
+                <button class="btn btn-info ms-2" @onclick="TestSaveToken">Testar Salvar Token</button>
+            </div>
+            
+            @if (!string.IsNullOrEmpty(debugInfo))
+            {
+                <div class="mt-3">
+                    <h6>Informações:</h6>
+                    <pre class="bg-light p-3">@debugInfo</pre>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private string debugInfo = string.Empty;
+
+    private async Task CheckTokens()
+    {
+        try
+        {
+            // Primeiro, testa se o localStorage está funcionando
+            await LocalStorage.SetItemAsync("test", "testValue");
+            var testValue = await LocalStorage.GetItemAsync<string>("test");
+            await LocalStorage.RemoveItemAsync("test");
+            
+            var authToken = await LocalStorage.GetItemAsync<string>("authToken");
+            var refreshToken = await LocalStorage.GetItemAsync<string>("refreshToken");
+            var expiration = await LocalStorage.GetItemAsync<DateTime?>("tokenExpiration");
+            
+            debugInfo = $"LocalStorage Test: {(testValue == "testValue" ? "OK" : "FALHOU")}\n" +
+                        $"Auth Token: {(string.IsNullOrEmpty(authToken) ? "NULL" : "EXISTS (" + authToken.Length + " chars)")}\n" +
+                        $"Refresh Token: {(string.IsNullOrEmpty(refreshToken) ? "NULL" : "EXISTS")}\n" +
+                        $"Expiration: {expiration?.ToString() ?? "NULL"}\n" +
+                        $"Current Time: {DateTime.UtcNow}\n" +
+                        $"Is Expired: {expiration < DateTime.UtcNow}";
+        }
+        catch (Exception ex)
+        {
+            debugInfo = $"Erro: {ex.Message}";
+        }
+    }
+
+    private async Task ClearTokens()
+    {
+        await LocalStorage.RemoveItemAsync("authToken");
+        await LocalStorage.RemoveItemAsync("refreshToken");
+        await LocalStorage.RemoveItemAsync("tokenExpiration");
+        debugInfo = "Tokens removidos!";
+    }
+
+    private async Task CheckAuth()
+    {
+        try
+        {
+            var isAuth = await AuthService.IsAuthenticatedAsync();
+            debugInfo = $"IsAuthenticated: {isAuth}";
+        }
+        catch (Exception ex)
+        {
+            debugInfo = $"Erro ao verificar auth: {ex.Message}";
+        }
+    }
+
+    private async Task TestSaveToken()
+    {
+        try
+        {
+            var testToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c";
+            
+            await LocalStorage.SetItemAsync("authToken", testToken);
+            await LocalStorage.SetItemAsync("tokenExpiration", DateTime.UtcNow.AddHours(1));
+            
+            var savedToken = await LocalStorage.GetItemAsync<string>("authToken");
+            var savedExpiration = await LocalStorage.GetItemAsync<DateTime?>("tokenExpiration");
+            
+            debugInfo = $"Teste de salvamento:\n" +
+                       $"Token salvo: {!string.IsNullOrEmpty(savedToken)}\n" +
+                       $"Token length: {savedToken?.Length ?? 0}\n" +
+                       $"Expiração salva: {savedExpiration?.ToString() ?? "NULL"}";
+        }
+        catch (Exception ex)
+        {
+            debugInfo = $"Erro no teste: {ex.Message}";
+        }
+    }
+}

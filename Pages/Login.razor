@@ -1,0 +1,134 @@
+@page "/login"
+@using MoneyFixClient.Models
+@using MoneyFixClient.Services
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Login - MoneyFix</PageTitle>
+
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-4">
+            <div class="card shadow">
+                <div class="card-body">
+                    <h3 class="card-title text-center mb-4">
+                        <i class="fas fa-wallet text-primary"></i>
+                        MoneyFix
+                    </h3>
+                    
+                    <EditForm Model="@loginModel" OnValidSubmit="@HandleLogin">
+                        <DataAnnotationsValidator />
+                        
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Email</label>
+                            <InputText @bind-Value="loginModel.Email" 
+                                     class="form-control" 
+                                     id="email" 
+                                     placeholder="seu@email.com" />
+                            <ValidationMessage For="@(() => loginModel.Email)" class="text-danger" />
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="password" class="form-label">Senha</label>
+                            <InputText @bind-Value="loginModel.Password" 
+                                     type="password" 
+                                     class="form-control" 
+                                     id="password" 
+                                     placeholder="Sua senha" />
+                            <ValidationMessage For="@(() => loginModel.Password)" class="text-danger" />
+                        </div>
+                        
+                        @if (!string.IsNullOrEmpty(errorMessage))
+                        {
+                            <div class="alert alert-danger" role="alert">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                @errorMessage
+                            </div>
+                        }
+                        
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary" disabled="@isLoading">
+                                @if (isLoading)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                                    <span>Entrando...</span>
+                                }
+                                else
+                                {
+                                    <i class="fas fa-sign-in-alt me-2"></i>
+                                    <span>Entrar</span>
+                                }
+                            </button>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+            
+            <div class="text-center mt-3">
+                <small class="text-muted">
+                    MoneyFix Client v1.0 - Gerencie suas finanças
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private LoginRequest loginModel = new();
+    private string errorMessage = string.Empty;
+    private bool isLoading = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Verifica se o usuário já está autenticado
+        if (await AuthService.IsAuthenticatedAsync())
+        {
+            Navigation.NavigateTo("/dashboard");
+        }
+    }
+
+    private async Task HandleLogin()
+    {
+        errorMessage = string.Empty;
+        isLoading = true;
+
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("console.log", "Iniciando processo de login...");
+            var result = await AuthService.LoginAsync(loginModel);
+
+            await JSRuntime.InvokeVoidAsync("console.log", $"Resultado do login - Success: {result.Success}");
+
+            if (result.Success)
+            {
+                await JSRuntime.InvokeVoidAsync("console.log", "Login realizado com sucesso, verificando estado...");
+                
+                // Verifica se o token foi salvo
+                var isAuth = await AuthService.IsAuthenticatedAsync();
+                await JSRuntime.InvokeVoidAsync("console.log", $"Usuário autenticado após login: {isAuth}");
+                
+                // Aguarda um pouco para garantir que o estado foi atualizado
+                await Task.Delay(200);
+                
+                // Força o redirecionamento
+                await JSRuntime.InvokeVoidAsync("console.log", "Redirecionando para dashboard...");
+                Navigation.NavigateTo("/dashboard", forceLoad: true);
+            }
+            else
+            {
+                errorMessage = result.Message;
+                await JSRuntime.InvokeVoidAsync("console.error", "Erro no login:", result.Message);
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Erro inesperado: {ex.Message}";
+            await JSRuntime.InvokeVoidAsync("console.error", "Erro no login:", ex.Message);
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}
