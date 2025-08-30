@@ -37,11 +37,6 @@ public class Category
     public string Name { get; set; } = string.Empty;
     
     /// <summary>
-    /// Data de criação
-    /// </summary>
-    public DateTime CreatedAt { get; set; }
-    
-    /// <summary>
     /// ID do usuário proprietário
     /// </summary>
     public string UserId { get; set; } = string.Empty;
