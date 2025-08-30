@@ -5,6 +5,35 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 e este projeto adere ao [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2025-08-30
+
+### Adicionado
+- Sistema completo de gerenciamento de transações (CRUD)
+- Endpoints de transações implementados:
+  - POST /api/transactions - Criar transação
+  - PUT /api/transactions/{id} - Atualizar transação
+  - DELETE /api/transactions/{id} - Excluir transação
+  - GET /api/transactions - Listar transações
+- Página Transactions.razor com interface completa
+- Modais para criação/edição de transações
+- Modal de confirmação para exclusão
+- Sistema de validação de formulários
+- Suporte para tipos de transação (Despesa/Receita)
+- Integração com sistema de categorias
+- TransactionService registrado no DI container
+- Modelos TransactionRequest e Transaction
+- Design responsivo com estilos customizados
+- Feedback visual com alerts e loading states
+- Tratamento detalhado de códigos de erro HTTP
+
+### Funcionalidades de Transações
+- Criar transações com descrição, valor, data, tipo e categoria
+- Editar transações existentes com validação de propriedade
+- Excluir transações com confirmação de segurança
+- Visualizar lista de transações ordenada por data
+- Diferenciação visual entre receitas e despesas
+- Carregamento assíncrono de dados
+
 ## [1.1.0] - 2025-08-30
 
 ### Adicionado
