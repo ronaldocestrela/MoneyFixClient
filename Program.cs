@@ -19,6 +19,7 @@ builder.Services.AddScoped<AuthenticationStateProvider, CustomAuthenticationStat
 
 // Configuração dos Serviços
 builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<CategoryService>();
 builder.Services.AddScoped<AuthHeaderHandler>();
 
 // Configuração do HttpClient com AuthHeaderHandler
