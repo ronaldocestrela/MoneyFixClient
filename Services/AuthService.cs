@@ -108,17 +108,42 @@ public class AuthService
     /// </summary>
     public async Task LogoutAsync()
     {
+        try
+        {
+            // Faz a chamada para a API de logout
+            var response = await _httpClient.PostAsync("/api/account/logout", null);
+            
+            if (response.IsSuccessStatusCode || response.StatusCode == System.Net.HttpStatusCode.NoContent)
+            {
+                Console.WriteLine("Logout realizado com sucesso na API");
+            }
+            else
+            {
+                Console.WriteLine($"Erro no logout da API: {response.StatusCode}");
+                // Continua com o logout local mesmo se a API falhar
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Erro ao chamar API de logout: {ex.Message}");
+            // Continua com o logout local mesmo se a API falhar
+        }
+        
         // Remove o token do localStorage
         await _localStorage.RemoveItemAsync("authToken");
+        Console.WriteLine("Token removido do localStorage");
         
         // Remove o refresh token
         await _localStorage.RemoveItemAsync("refreshToken");
+        Console.WriteLine("Refresh token removido do localStorage");
         
         // Remove informações de expiração
         await _localStorage.RemoveItemAsync("tokenExpiration");
+        Console.WriteLine("Informações de expiração removidas do localStorage");
         
         // Notifica o AuthenticationStateProvider sobre o logout
         ((CustomAuthenticationStateProvider)_authenticationStateProvider).MarkUserAsLoggedOut();
+        Console.WriteLine("Estado de autenticação atualizado para deslogado");
     }
 
     /// <summary>
