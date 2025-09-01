@@ -5,6 +5,26 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 e este projeto adere ao [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.2] - 2025-08-31
+
+### Adicionado
+- **Dashboard**: Cores personalizadas das categorias nas transações
+  - CategoryColor adicionado ao modelo Transaction
+  - Badges coloridos substituem indicadores genéricos de tipo
+  - Exibição do nome real da categoria em vez de "Despesa/Receita"
+  - Integração visual completa com sistema de categorias
+
+### Melhorado
+- **UX**: Dashboard mais informativo e visualmente atraente
+  - Cores consistentes entre sistema de categorias e dashboard
+  - Loading states mantidos para melhor experiência
+  - Design mais moderno com badges coloridos dinamicamente
+
+### Técnico
+- Transaction.CategoryColor: nova propriedade para cor da categoria
+- Dashboard.razor: badges com style dinâmico baseado na cor da categoria
+- Integração com TransactionService.GetLastTransactionsAsync() mantida
+
 ## [1.2.1] - 2025-08-31
 
 ### Corrigido

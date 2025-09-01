@@ -152,8 +152,8 @@
                                             <td>@transaction.TransactionDate.ToString("dd/MM/yyyy")</td>
                                             <td>@transaction.TransactionDescription</td>
                                             <td>
-                                                <span class="badge @(transaction.IsExpense ? "bg-danger" : "bg-success")">
-                                                    @(transaction.IsExpense ? "Despesa" : "Receita")
+                                                <span class="badge" style="background-color: @transaction.CategoryColor; color: #fff;">
+                                                    @transaction.CategoryName
                                                 </span>
                                             </td>
                                             <td>
