@@ -46,3 +46,29 @@ public class Category
     /// </summary>
     public string UserId { get; set; } = string.Empty;
 }
+
+/// <summary>
+/// Modelo para atualização de categoria
+/// </summary>
+public class UpdateCategoryRequest
+{
+    /// <summary>
+    /// ID da categoria
+    /// </summary>
+    public string Id { get; set; } = string.Empty;
+    
+    /// <summary>
+    /// ID do usuário proprietário
+    /// </summary>
+    public string UserId { get; set; } = string.Empty;
+    
+    /// <summary>
+    /// Nome da categoria
+    /// </summary>
+    public string Name { get; set; } = string.Empty;
+    
+    /// <summary>
+    /// Cor da categoria
+    /// </summary>
+    public string Color { get; set; } = string.Empty;
+}

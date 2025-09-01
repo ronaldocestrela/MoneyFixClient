@@ -95,16 +95,23 @@ public class CategoryService(HttpClient httpClient)
     /// <summary>
     /// Atualiza uma categoria existente
     /// </summary>
-    /// <param name="categoryId">ID da categoria a ser atualizada</param>
-    /// <param name="request">Dados atualizados da categoria</param>
+    /// <param name="category">Categoria completa a ser atualizada</param>
     /// <returns>Resultado da atualização</returns>
-    public async Task<CreateCategoryResponse> UpdateCategoryAsync(string categoryId, CreateCategoryRequest request)
+    public async Task<CreateCategoryResponse> UpdateCategoryAsync(Category category)
     {
         try
         {
-            Console.WriteLine($"CategoryService: Atualizando categoria {categoryId}");
+            Console.WriteLine($"CategoryService: Atualizando categoria {category.Id}");
             
-            var response = await _httpClient.PutAsJsonAsync($"/api/categories/{categoryId}", request);
+            var updateRequest = new UpdateCategoryRequest
+            {
+                Id = category.Id,
+                UserId = category.UserId,
+                Name = category.Name,
+                Color = category.Color
+            };
+            
+            var response = await _httpClient.PutAsJsonAsync($"/api/categories/{category.Id}", updateRequest);
             
             if (response.IsSuccessStatusCode)
             {
@@ -112,7 +119,7 @@ public class CategoryService(HttpClient httpClient)
                 
                 return new CreateCategoryResponse
                 {
-                    Id = categoryId,
+                    Id = category.Id,
                     Message = "Categoria atualizada com sucesso!"
                 };
             }

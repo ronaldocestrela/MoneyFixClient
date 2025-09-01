@@ -74,12 +74,20 @@
                                                     </small>
                                                 </div>
                                                 <div class="dropdown">
-                                                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" 
+                                                            type="button" 
+                                                            id="dropdownMenuButton-@category.Id" 
+                                                            data-bs-toggle="dropdown" 
+                                                            aria-expanded="false">
                                                         <i class="fas fa-ellipsis-v"></i>
                                                     </button>
-                                                    <ul class="dropdown-menu">
-                                                        <li><a class="dropdown-item" href="#" @onclick="() => ShowEditModal(category)" @onclick:preventDefault="true"><i class="fas fa-edit me-2"></i>Editar</a></li>
-                                                        <li><a class="dropdown-item text-danger" href="#"><i class="fas fa-trash me-2"></i>Excluir</a></li>
+                                                    <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton-@category.Id">
+                                                        <li><button class="dropdown-item" type="button" @onclick="() => ShowEditModal(category)">
+                                                            <i class="fas fa-edit me-2"></i>Editar
+                                                        </button></li>
+                                                        <li><button class="dropdown-item text-danger" type="button" disabled>
+                                                            <i class="fas fa-trash me-2"></i>Excluir (em breve)
+                                                        </button></li>
                                                     </ul>
                                                 </div>
                                             </div>
@@ -275,13 +283,32 @@
 
     private void ShowEditModal(Category category)
     {
-        selectedCategory = category;
-        editCategory = new CreateCategoryRequest
+        if (category == null)
         {
+            Console.WriteLine("ShowEditModal: categoria é null");
+            return;
+        }
+
+        Console.WriteLine($"ShowEditModal chamado para categoria: {category.Name}");
+        
+        // Mantém a categoria original completa
+        selectedCategory = new Category
+        {
+            Id = category.Id,
+            UserId = category.UserId,
             Name = category.Name,
             Color = category.Color
         };
+        
+        // Cria o formulário apenas com os campos editáveis
+        editCategory = new CreateCategoryRequest
+        {
+            Name = category.Name ?? string.Empty,
+            Color = category.Color ?? "#0d6efd"
+        };
+        
         showEditModal = true;
+        Console.WriteLine($"showEditModal definido como: {showEditModal}");
         StateHasChanged();
     }
 
@@ -335,7 +362,11 @@
 
         try
         {
-            var result = await CategoryService.UpdateCategoryAsync(selectedCategory.Id, editCategory);
+            // Atualiza os campos editáveis na categoria original
+            selectedCategory.Name = editCategory.Name;
+            selectedCategory.Color = editCategory.Color;
+            
+            var result = await CategoryService.UpdateCategoryAsync(selectedCategory);
 
             if (result.Success)
             {
