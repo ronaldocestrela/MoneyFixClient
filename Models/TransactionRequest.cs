@@ -37,10 +37,10 @@ public class TransactionRequest
     public DateTime TransactionDate { get; set; } = DateTime.Now;
 
     /// <summary>
-    /// Tipo da transação (1 = Despesa, 2 = Receita)
+    /// Tipo da transação (1 = Despesa, 0 = Receita)
     /// </summary>
     [Required(ErrorMessage = "Tipo de transação é obrigatório")]
-    [Range(1, 2, ErrorMessage = "Tipo deve ser 1 (Despesa) ou 2 (Receita)")]
+    [Range(0, 1, ErrorMessage = "Tipo deve ser 0 (Despesa) ou 1 (Receita)")]
     public int TransactionsType { get; set; } = 1;
 
     /// <summary>

@@ -5,6 +5,34 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 e este projeto adere ao [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1] - 2025-08-31
+
+### Corrigido
+- **CRÍTICO**: API de atualização de categorias corrigida
+  - Implementado UpdateCategoryRequest com campos obrigatórios (id, userId, name, color)
+  - CategoryService.UpdateCategoryAsync agora envia body completo conforme especificação da API
+  - Preservação correta de id e userId durante edição
+- **UI**: Bootstrap JavaScript adicionado ao index.html
+  - Dropdowns agora funcionam corretamente
+  - Componentes Bootstrap interativos habilitados
+- **UX**: Modal de edição de categorias totalmente funcional
+  - IDs únicos para dropdowns previnem conflitos
+  - Botões corrigidos para type="button"
+  - Logs de debug adicionados para troubleshooting
+
+### Técnico
+- API Request Body agora segue especificação:
+  ```json
+  {
+    "id": "uuid",
+    "userId": "uuid", 
+    "name": "string",
+    "color": "string"
+  }
+  ```
+- Bootstrap 5 JavaScript bundle carregado corretamente
+- Tratamento de erros HTTP específicos (400/401/403/404)
+
 ## [1.2.0] - 2025-08-30
 
 ### Adicionado

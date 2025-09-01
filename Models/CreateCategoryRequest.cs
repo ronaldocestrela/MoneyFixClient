@@ -13,4 +13,5 @@ public class CreateCategoryRequest
     [Required(ErrorMessage = "Nome da categoria é obrigatório")]
     [StringLength(100, MinimumLength = 2, ErrorMessage = "Nome deve ter entre 2 e 100 caracteres")]
     public string Name { get; set; } = string.Empty;
+    public string Color { get; set; } = string.Empty;
 }

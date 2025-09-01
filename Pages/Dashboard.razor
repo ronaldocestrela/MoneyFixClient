@@ -3,6 +3,7 @@
 @attribute [Authorize]
 @inject AuthService AuthService
 @inject NavigationManager Navigation
+@inject TransactionService TransactionService
 
 <PageTitle>Dashboard - MoneyFix</PageTitle>
 
@@ -104,7 +105,7 @@
                                     <th>Valor</th>
                                 </tr>
                             </thead>
-                            <tbody>
+                            @* <tbody>
                                 <tr>
                                     <td>28/08/2025</td>
                                     <td>Supermercado XYZ</td>
@@ -129,7 +130,49 @@
                                     <td><span class="badge bg-info">Serviços</span></td>
                                     <td><span class="text-danger">-R$ 89,90</span></td>
                                 </tr>
-                            </tbody>
+                            </tbody> *@
+                            @if (isLoadingLastTransactions)
+                            {
+                                <tbody>
+                                    <tr>
+                                        <td colspan="4" class="text-center">
+                                            <div class="spinner-border text-primary" role="status">
+                                                <span class="visually-hidden">Carregando...</span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            }
+                            else if (recentTransactions.Any())
+                            {
+                                <tbody>
+                                    @foreach (var transaction in recentTransactions)
+                                    {
+                                        <tr>
+                                            <td>@transaction.TransactionDate.ToString("dd/MM/yyyy")</td>
+                                            <td>@transaction.TransactionDescription</td>
+                                            <td>
+                                                <span class="badge @(transaction.IsExpense ? "bg-danger" : "bg-success")">
+                                                    @(transaction.IsExpense ? "Despesa" : "Receita")
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <span class="@(transaction.IsExpense ? "text-danger" : "text-success")">
+                                                    @(transaction.IsExpense ? "-" : "+")@transaction.TransactionAmount.ToString("C")
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            }
+                            else
+                            {
+                                <tbody>
+                                    <tr>
+                                        <td colspan="4" class="text-center">Nenhuma transação recente encontrada.</td>
+                                    </tr>
+                                </tbody>
+                            }
                         </table>
                     </div>
                 </div>
@@ -185,22 +228,37 @@
             </div>
         </div>
     </div>
-
-    <div class="row">
-        <div class="col-12">
-            <div class="alert alert-info" role="alert">
-                <i class="fas fa-info-circle me-2"></i>
-                <strong>Área Protegida:</strong> Esta página só é acessível para usuários autenticados.
-                Os dados exibidos são exemplos e serão substituídos por dados reais da API.
-            </div>
-        </div>
-    </div>
 </div>
 
 @code {
+    private List<Transaction> recentTransactions = new();
+    private bool isLoadingLastTransactions = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadRecentTransactions();
+    }
     private async Task HandleLogout()
     {
         await AuthService.LogoutAsync();
         Navigation.NavigateTo("/login");
+    }
+
+    private async Task LoadRecentTransactions()
+    {
+        isLoadingLastTransactions = true;
+        try
+        {
+            recentTransactions = await TransactionService.GetLastTransactionsAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Erro ao carregar transações recentes: {ex.Message}");
+        }
+        finally
+        {
+            isLoadingLastTransactions = false;
+            StateHasChanged();
+        }
     }
 }
