@@ -7,14 +7,9 @@ namespace MoneyFixClient.Services;
 /// <summary>
 /// Serviço responsável pelo gerenciamento de categorias
 /// </summary>
-public class CategoryService
+public class CategoryService(HttpClient httpClient)
 {
-    private readonly HttpClient _httpClient;
-
-    public CategoryService(HttpClient httpClient)
-    {
-        _httpClient = httpClient;
-    }
+    private readonly HttpClient _httpClient = httpClient;
 
     /// <summary>
     /// Cria uma nova categoria
@@ -25,8 +20,6 @@ public class CategoryService
     {
         try
         {
-            Console.WriteLine($"CategoryService: Criando categoria '{request.Name}'");
-            
             var response = await _httpClient.PostAsJsonAsync("/api/categories/add-category", request);
             
             if (response.IsSuccessStatusCode)
@@ -39,7 +32,6 @@ public class CategoryService
                 
                 if (!string.IsNullOrEmpty(categoryId))
                 {
-                    Console.WriteLine($"CategoryService: Categoria criada com sucesso! ID: {categoryId}");
                     return new CreateCategoryResponse
                     {
                         Id = categoryId,
@@ -91,12 +83,62 @@ public class CategoryService
             }
 
             Console.WriteLine($"CategoryService: Erro ao buscar categorias - Status: {response.StatusCode}");
-            return new List<Category>();
+            return [];
         }
         catch (Exception ex)
         {
             Console.WriteLine($"CategoryService: Exceção ao buscar categorias: {ex.Message}");
-            return new List<Category>();
+            return [];
+        }
+    }
+
+    /// <summary>
+    /// Atualiza uma categoria existente
+    /// </summary>
+    /// <param name="categoryId">ID da categoria a ser atualizada</param>
+    /// <param name="request">Dados atualizados da categoria</param>
+    /// <returns>Resultado da atualização</returns>
+    public async Task<CreateCategoryResponse> UpdateCategoryAsync(string categoryId, CreateCategoryRequest request)
+    {
+        try
+        {
+            Console.WriteLine($"CategoryService: Atualizando categoria {categoryId}");
+            
+            var response = await _httpClient.PutAsJsonAsync($"/api/categories/{categoryId}", request);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                Console.WriteLine("CategoryService: Categoria atualizada com sucesso");
+                
+                return new CreateCategoryResponse
+                {
+                    Id = categoryId,
+                    Message = "Categoria atualizada com sucesso!"
+                };
+            }
+
+            var errorContent = await response.Content.ReadAsStringAsync();
+            Console.WriteLine($"CategoryService: Erro na atualização - Status: {response.StatusCode}, Content: {errorContent}");
+            
+            return new CreateCategoryResponse
+            {
+                Message = response.StatusCode switch
+                {
+                    System.Net.HttpStatusCode.BadRequest => "Dados inválidos fornecidos",
+                    System.Net.HttpStatusCode.Unauthorized => "Você não está autorizado",
+                    System.Net.HttpStatusCode.Forbidden => "Você não tem permissão para editar esta categoria",
+                    System.Net.HttpStatusCode.NotFound => "Categoria não encontrada",
+                    _ => !string.IsNullOrEmpty(errorContent) ? errorContent : "Erro ao atualizar categoria"
+                }
+            };
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"CategoryService: Exceção ao atualizar categoria: {ex.Message}");
+            return new CreateCategoryResponse
+            {
+                Message = $"Erro ao atualizar categoria: {ex.Message}"
+            };
         }
     }
 }

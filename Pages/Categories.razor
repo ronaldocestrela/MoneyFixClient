@@ -63,7 +63,8 @@
                             @foreach (var category in categories)
                             {
                                 <div class="col-md-6 col-lg-4 mb-3">
-                                    <div class="card border-left-primary h-100">
+                                    @* <div class="card border-left-primary h-100"> *@
+                                    <div class="card h-100" style="border-left: 0.3rem solid @(string.IsNullOrWhiteSpace(category.Color) ? "#0d6efd" : category.Color);">
                                         <div class="card-body">
                                             <div class="d-flex justify-content-between align-items-start">
                                                 <div>
@@ -77,7 +78,7 @@
                                                         <i class="fas fa-ellipsis-v"></i>
                                                     </button>
                                                     <ul class="dropdown-menu">
-                                                        <li><a class="dropdown-item" href="#"><i class="fas fa-edit me-2"></i>Editar</a></li>
+                                                        <li><a class="dropdown-item" href="#" @onclick="() => ShowEditModal(category)" @onclick:preventDefault="true"><i class="fas fa-edit me-2"></i>Editar</a></li>
                                                         <li><a class="dropdown-item text-danger" href="#"><i class="fas fa-trash me-2"></i>Excluir</a></li>
                                                     </ul>
                                                 </div>
@@ -123,10 +124,21 @@
                     <div class="mb-3">
                         <label for="categoryName" class="form-label">Nome da Categoria</label>
                         <InputText @bind-Value="newCategory.Name" 
-                                 class="form-control" 
-                                 id="categoryName" 
-                                 placeholder="Ex: Alimentação, Transporte, Lazer..." />
+                                    class="form-control" 
+                                    id="categoryName" 
+                                    placeholder="Ex: Alimentação, Transporte, Lazer..." />
                         <ValidationMessage For="@(() => newCategory.Name)" class="text-danger" />
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="categoryColor" class="form-label">Cor</label>
+                        <InputText type="color"
+                                    @bind-Value="newCategory.Color"
+                                    class="form-control form-control-color"
+                                    id="categoryColor"
+                                    style="width: 3rem; height: 3rem; padding: 0;"
+                        />
+                        <ValidationMessage For="@(() => newCategory.Color)" class="text-danger" />
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -152,12 +164,73 @@
     </div>
 </div>
 
+<!-- Modal para Editar Categoria -->
+<div class="modal fade @(showEditModal ? "show d-block" : "")" tabindex="-1" style="@(showEditModal ? "background-color: rgba(0,0,0,0.5);" : "")">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-edit text-primary me-2"></i>
+                    Editar Categoria
+                </h5>
+                <button type="button" class="btn-close" @onclick="HideEditModal"></button>
+            </div>
+            <EditForm Model="@editCategory" OnValidSubmit="@UpdateCategory">
+                <DataAnnotationsValidator />
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="editCategoryName" class="form-label">Nome da Categoria</label>
+                        <InputText @bind-Value="editCategory.Name" 
+                                    class="form-control" 
+                                    id="editCategoryName" 
+                                    placeholder="Ex: Alimentação, Transporte, Lazer..." />
+                        <ValidationMessage For="@(() => editCategory.Name)" class="text-danger" />
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="editCategoryColor" class="form-label">Cor</label>
+                        <InputText type="color"
+                                    @bind-Value="editCategory.Color"
+                                    class="form-control form-control-color"
+                                    id="editCategoryColor"
+                                    style="width: 3rem; height: 3rem; padding: 0;"
+                        />
+                        <ValidationMessage For="@(() => editCategory.Color)" class="text-danger" />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="HideEditModal">
+                        <i class="fas fa-times me-2"></i>
+                        Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary" disabled="@isUpdating">
+                        @if (isUpdating)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                            <text>Salvando...</text>
+                        }
+                        else
+                        {
+                            <i class="fas fa-save me-2"></i>
+                            <text>Salvar Alterações</text>
+                        }
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+</div>
+
 @code {
     private List<Category> categories = new();
     private CreateCategoryRequest newCategory = new();
+    private CreateCategoryRequest editCategory = new();
+    private Category selectedCategory = new();
     private bool isLoading = true;
     private bool isCreating = false;
+    private bool isUpdating = false;
     private bool showCreateModal = false;
+    private bool showEditModal = false;
     private string alertMessage = string.Empty;
     private string alertType = string.Empty;
 
@@ -200,6 +273,26 @@
         StateHasChanged();
     }
 
+    private void ShowEditModal(Category category)
+    {
+        selectedCategory = category;
+        editCategory = new CreateCategoryRequest
+        {
+            Name = category.Name,
+            Color = category.Color
+        };
+        showEditModal = true;
+        StateHasChanged();
+    }
+
+    private void HideEditModal()
+    {
+        showEditModal = false;
+        editCategory = new CreateCategoryRequest();
+        selectedCategory = new Category();
+        StateHasChanged();
+    }
+
     private async Task CreateCategory()
     {
         if (isCreating) return;
@@ -229,6 +322,39 @@
         finally
         {
             isCreating = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task UpdateCategory()
+    {
+        if (isUpdating) return;
+
+        isUpdating = true;
+        StateHasChanged();
+
+        try
+        {
+            var result = await CategoryService.UpdateCategoryAsync(selectedCategory.Id, editCategory);
+
+            if (result.Success)
+            {
+                ShowAlert(result.Message, "success");
+                HideEditModal();
+                await LoadCategories(); // Recarrega a lista
+            }
+            else
+            {
+                ShowAlert(result.Message, "error");
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowAlert($"Erro ao atualizar categoria: {ex.Message}", "error");
+        }
+        finally
+        {
+            isUpdating = false;
             StateHasChanged();
         }
     }

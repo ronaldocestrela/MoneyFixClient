@@ -30,6 +30,11 @@ public class Category
     /// ID único da categoria
     /// </summary>
     public string Id { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Cor selecionada pelo usuário da categoria
+    /// </summary>
+    public string Color { get; set; } = string.Empty;
     
     /// <summary>
     /// Nome da categoria

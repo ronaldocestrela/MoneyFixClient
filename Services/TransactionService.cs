@@ -27,17 +27,17 @@ public class TransactionService
         {
             Console.WriteLine($"TransactionService: Criando transação '{request.TransactionDescription}'");
             Console.WriteLine($"TransactionService: Valor: {request.TransactionAmount:C}, Tipo: {request.TransactionsType}");
-            
+
             var response = await _httpClient.PostAsJsonAsync("/api/transactions", request);
-            
+
             if (response.IsSuccessStatusCode)
             {
                 var content = await response.Content.ReadAsStringAsync();
                 Console.WriteLine($"TransactionService: Resposta da API: {content}");
-                
+
                 // A API retorna apenas o ID como string
                 var transactionId = JsonSerializer.Deserialize<string>(content);
-                
+
                 if (!string.IsNullOrEmpty(transactionId))
                 {
                     Console.WriteLine($"TransactionService: Transação criada com sucesso! ID: {transactionId}");
@@ -51,7 +51,7 @@ public class TransactionService
 
             var errorContent = await response.Content.ReadAsStringAsync();
             Console.WriteLine($"TransactionService: Erro na criação - Status: {response.StatusCode}, Content: {errorContent}");
-            
+
             return new TransactionResponse
             {
                 Message = !string.IsNullOrEmpty(errorContent) ? errorContent : "Erro ao criar transação"
@@ -79,17 +79,17 @@ public class TransactionService
         {
             Console.WriteLine($"TransactionService: Atualizando transação {id}");
             Console.WriteLine($"TransactionService: Nova descrição: '{request.TransactionDescription}'");
-            
+
             var response = await _httpClient.PutAsJsonAsync($"/api/transactions/{id}", request);
-            
+
             if (response.IsSuccessStatusCode)
             {
                 var content = await response.Content.ReadAsStringAsync();
                 Console.WriteLine($"TransactionService: Resposta da API: {content}");
-                
+
                 // A API retorna o ID da transação atualizada
                 var transactionId = JsonSerializer.Deserialize<string>(content);
-                
+
                 if (!string.IsNullOrEmpty(transactionId))
                 {
                     Console.WriteLine($"TransactionService: Transação atualizada com sucesso! ID: {transactionId}");
@@ -112,7 +112,7 @@ public class TransactionService
             };
 
             Console.WriteLine($"TransactionService: Erro na atualização - Status: {response.StatusCode}, Message: {errorMessage}");
-            
+
             return new TransactionResponse
             {
                 Message = errorMessage
@@ -138,17 +138,17 @@ public class TransactionService
         try
         {
             Console.WriteLine($"TransactionService: Excluindo transação {id}");
-            
+
             var response = await _httpClient.DeleteAsync($"/api/transactions/{id}");
-            
+
             if (response.IsSuccessStatusCode)
             {
                 var content = await response.Content.ReadAsStringAsync();
                 Console.WriteLine($"TransactionService: Resposta da API: {content}");
-                
+
                 // A API retorna o ID da transação excluída
                 var transactionId = JsonSerializer.Deserialize<string>(content);
-                
+
                 if (!string.IsNullOrEmpty(transactionId))
                 {
                     Console.WriteLine($"TransactionService: Transação excluída com sucesso! ID: {transactionId}");
@@ -170,7 +170,7 @@ public class TransactionService
             };
 
             Console.WriteLine($"TransactionService: Erro na exclusão - Status: {response.StatusCode}, Message: {errorMessage}");
-            
+
             return new TransactionResponse
             {
                 Message = errorMessage
@@ -195,9 +195,9 @@ public class TransactionService
         try
         {
             Console.WriteLine("TransactionService: Buscando transações");
-            
+
             var response = await _httpClient.GetAsync("/api/transactions");
-            
+
             if (response.IsSuccessStatusCode)
             {
                 var content = await response.Content.ReadAsStringAsync();
@@ -205,7 +205,7 @@ public class TransactionService
                 {
                     PropertyNameCaseInsensitive = true
                 });
-                
+
                 Console.WriteLine($"TransactionService: {transactions?.Count ?? 0} transações encontradas");
                 return transactions ?? new List<Transaction>();
             }
@@ -217,6 +217,36 @@ public class TransactionService
         {
             Console.WriteLine($"TransactionService: Exceção ao buscar transações: {ex.Message}");
             return new List<Transaction>();
+        }
+    }
+    
+    /// <summary>
+    /// Lista as ultimas 5 tranzações do usuário
+    /// </summary>
+    /// <returns>Lista de transações</returns>
+    public async Task<List<Transaction>> GetLastTransactionsAsync()
+    {
+        try
+        {
+            var response = await _httpClient.GetAsync("/api/maindashboard/last-transactions");
+
+            if (response.IsSuccessStatusCode)
+            {
+                var content = await response.Content.ReadAsStringAsync();
+                var transactions = JsonSerializer.Deserialize<List<Transaction>>(content, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+
+                return transactions ?? [];
+            }
+
+            return [];
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"CategoryService: Exceção ao buscar transações: {ex.Message}");
+            return [];
         }
     }
 }
