@@ -219,16 +219,16 @@ public class TransactionService
             return new List<Transaction>();
         }
     }
-    
+
     /// <summary>
     /// Lista as ultimas 5 tranzações do usuário
     /// </summary>
     /// <returns>Lista de transações</returns>
-    public async Task<List<Transaction>> GetLastTransactionsAsync()
+    public async Task<List<Transaction>> GetLastTransactionsAsync(DateTime? startDate = null, DateTime? endDate = null)
     {
         try
         {
-            var response = await _httpClient.GetAsync("/api/maindashboard/last-transactions");
+            var response = await _httpClient.GetAsync($"/api/maindashboard/last-transactions?startDate={startDate:yyyy-MM-dd}&endDate={endDate:yyyy-MM-dd}");
 
             if (response.IsSuccessStatusCode)
             {
@@ -246,6 +246,77 @@ public class TransactionService
         catch (Exception ex)
         {
             Console.WriteLine($"CategoryService: Exceção ao buscar transações: {ex.Message}");
+            return [];
+        }
+    }
+
+    /// <summary>
+    /// Responsável por exibir total de receitas custos, saldo e total de transações
+    /// </summary>
+    /// <returns>Total de transações</returns>
+    public async Task<Profit> GetTotalTransactionsAsync(DateTime? startDate = null, DateTime? endDate = null)
+    {
+        try
+        {
+            var response = await _httpClient.GetAsync($"/api/maindashboard/profit?startDate={startDate:yyyy-MM-dd}&endDate={endDate:yyyy-MM-dd}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                var content = await response.Content.ReadAsStringAsync();
+                var totalTransactions = JsonSerializer.Deserialize<Profit>(content, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+
+                return totalTransactions ?? new Profit();
+            }
+
+            return new Profit();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"CategoryService: Exceção ao buscar total de transações: {ex.Message}");
+            return new Profit();
+        }
+    }
+
+    /// <summary>
+    /// Lista de gastos por porcentagem
+    /// </summary>
+    /// <returns>Lista de gastos por porcentagem</returns>
+    public async Task<List<ExpenseByCategory>> GetExpensesByCategoryAsync(DateTime? startDate = null, DateTime? endDate = null)
+    {
+        try
+        {
+            string url = "/api/maindashboard/spending-percentage";
+            if (startDate.HasValue || endDate.HasValue)
+            {
+                var query = new List<string>();
+                if (startDate.HasValue)
+                    query.Add($"startDate={startDate.Value:yyyy-MM-dd}");
+                if (endDate.HasValue)
+                    query.Add($"endDate={endDate.Value:yyyy-MM-dd}");
+                url += "?" + string.Join("&", query);
+            }
+
+            var response = await _httpClient.GetAsync(url);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var content = await response.Content.ReadAsStringAsync();
+                var expensesByCategory = JsonSerializer.Deserialize<List<ExpenseByCategory>>(content, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+
+                return expensesByCategory ?? [];
+            }
+
+            return [];
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"CategoryService: Exceção ao buscar despesas por categoria: {ex.Message}");
             return [];
         }
     }
