@@ -5,6 +5,39 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 e este projeto adere ao [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2025-09-01
+
+### Adicionado
+- **Dashboard Dinâmico**: Filtros de data interativos
+  - Seletores de data (startDate/endDate) com validação
+  - Atualização automática ao alterar filtros (`@bind:event="onchange"`)
+  - Layout responsivo melhorado para mobile e desktop
+  - Dados reais da API substituem valores hardcoded
+
+- **Novos Modelos de Dados**:
+  - `Profit.cs`: TotalIncome, TotalExpense, NetProfit, TransactionCount
+  - `ExpenseByCategory.cs`: CategoryName, Percentage, Color
+
+- **API Integration Completa**:
+  - `GetTotalTransactionsAsync(startDate, endDate)` para métricas financeiras
+  - `GetLastTransactionsAsync(startDate, endDate)` para transações recentes
+  - `GetExpensesByCategoryAsync(startDate, endDate)` para análise por categoria
+
+### Melhorado
+- **Performance**: Carregamento paralelo com `Task.WhenAll`
+- **UX Responsiva**: 
+  - Layout `col-12 col-lg-8/4` para melhor distribuição
+  - Seletores de data lado a lado em todas as telas
+  - Progress bars com cores personalizadas das categorias
+- **Estado de Loading**: Loading states específicos para cada seção
+- **Reatividade**: Properties inteligentes que detectam mudanças automaticamente
+
+### Técnico
+- **Thread Safety**: `InvokeAsync` para updates thread-safe
+- **Performance**: Prevenção de loops infinitos em property setters
+- **Error Handling**: Tratamento robusto de erros para todas as APIs
+- **Code Organization**: Método `RefreshData()` centralizado
+
 ## [1.2.2] - 2025-08-31
 
 ### Adicionado
