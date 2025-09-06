@@ -216,4 +216,99 @@ public class AuthService
             ExpiresIn = expiration.HasValue ? (int)(expiration.Value - DateTime.UtcNow).TotalSeconds : 0
         };
     }
+
+    /// <summary>
+    /// Realiza o registro de um novo usuário
+    /// </summary>
+    /// <param name="registerRequest">Dados de registro</param>
+    /// <returns>Resultado do registro</returns>
+    public async Task<RegisterResponse> RegisterAsync(RegisterRequest registerRequest)
+    {
+        try
+        {
+            // Cria o objeto para enviar à API (sem confirmPassword)
+            var requestBody = new
+            {
+                email = registerRequest.Email,
+                password = registerRequest.Password,
+                userFirstName = registerRequest.UserFirstName,
+                userLastName = registerRequest.UserLastName
+            };
+
+            var response = await _httpClient.PostAsJsonAsync("/api/account/register", requestBody);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                var content = await response.Content.ReadAsStringAsync();
+                string userId = string.Empty;
+                
+                // Verifica se há conteúdo para deserializar
+                if (!string.IsNullOrWhiteSpace(content))
+                {
+                    try
+                    {
+                        // Tenta deserializar como string primeiro
+                        if (content.StartsWith("\"") && content.EndsWith("\""))
+                        {
+                            userId = JsonSerializer.Deserialize<string>(content) ?? string.Empty;
+                        }
+                        else if (content.StartsWith("{") && content.EndsWith("}"))
+                        {
+                            // Tenta como objeto
+                            var responseObj = JsonSerializer.Deserialize<Dictionary<string, object>>(content);
+                            userId = responseObj?.GetValueOrDefault("id")?.ToString() ?? string.Empty;
+                        }
+                        else
+                        {
+                            // Se não é JSON válido, usa o conteúdo diretamente
+                            userId = content.Trim();
+                        }
+                    }
+                    catch (JsonException)
+                    {
+                        // Se falhar a deserialização, usa o conteúdo como string
+                        userId = content.Trim();
+                    }
+                }
+
+                return new RegisterResponse
+                {
+                    Success = true,
+                    Message = "Usuário registrado com sucesso!",
+                    UserId = userId
+                };
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                return new RegisterResponse
+                {
+                    Success = false,
+                    Message = response.StatusCode switch
+                    {
+                        System.Net.HttpStatusCode.BadRequest => "Dados inválidos fornecidos",
+                        System.Net.HttpStatusCode.Conflict => "Este email já está em uso",
+                        System.Net.HttpStatusCode.UnprocessableEntity => "Dados não puderam ser processados",
+                        _ => !string.IsNullOrEmpty(errorContent) ? errorContent : "Erro ao registrar usuário"
+                    }
+                };
+            }
+        }
+        catch (HttpRequestException)
+        {
+            return new RegisterResponse
+            {
+                Success = false,
+                Message = "Erro de conexão. Verifique sua internet e tente novamente."
+            };
+        }
+        catch (Exception ex)
+        {
+            return new RegisterResponse
+            {
+                Success = false,
+                Message = $"Erro inesperado: {ex.Message}"
+            };
+        }
+    }
 }
