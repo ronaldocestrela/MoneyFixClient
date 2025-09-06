@@ -240,19 +240,35 @@ public class AuthService
             if (response.IsSuccessStatusCode)
             {
                 var content = await response.Content.ReadAsStringAsync();
+                string userId = string.Empty;
                 
-                // A API pode retornar apenas o ID do usuário ou um objeto completo
-                // Vamos tentar deserializar como string primeiro, depois como objeto
-                string userId;
-                try
+                // Verifica se há conteúdo para deserializar
+                if (!string.IsNullOrWhiteSpace(content))
                 {
-                    userId = JsonSerializer.Deserialize<string>(content) ?? string.Empty;
-                }
-                catch
-                {
-                    // Se falhar, tenta como objeto
-                    var responseObj = JsonSerializer.Deserialize<Dictionary<string, object>>(content);
-                    userId = responseObj?.GetValueOrDefault("id")?.ToString() ?? string.Empty;
+                    try
+                    {
+                        // Tenta deserializar como string primeiro
+                        if (content.StartsWith("\"") && content.EndsWith("\""))
+                        {
+                            userId = JsonSerializer.Deserialize<string>(content) ?? string.Empty;
+                        }
+                        else if (content.StartsWith("{") && content.EndsWith("}"))
+                        {
+                            // Tenta como objeto
+                            var responseObj = JsonSerializer.Deserialize<Dictionary<string, object>>(content);
+                            userId = responseObj?.GetValueOrDefault("id")?.ToString() ?? string.Empty;
+                        }
+                        else
+                        {
+                            // Se não é JSON válido, usa o conteúdo diretamente
+                            userId = content.Trim();
+                        }
+                    }
+                    catch (JsonException)
+                    {
+                        // Se falhar a deserialização, usa o conteúdo como string
+                        userId = content.Trim();
+                    }
                 }
 
                 return new RegisterResponse
