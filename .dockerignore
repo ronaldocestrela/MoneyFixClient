@@ -1,0 +1,69 @@
+# Arquivos e diretórios do .NET
+bin/
+obj/
+out/
+.vs/
+.vscode/
+
+# Arquivos do Git
+.git/
+.gitignore
+.gitattributes
+
+# Arquivos do Node.js (se houver)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Arquivos de sistema
+.DS_Store
+Thumbs.db
+
+# Arquivos de log
+*.log
+logs/
+
+# Arquivos temporários
+*.tmp
+*.temp
+*.swp
+*.swo
+
+# Arquivos de backup
+*.bak
+*.backup
+
+# Arquivos de IDE
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Arquivos de documentação
+README.md
+CHANGELOG.md
+*.md
+
+# Arquivos de configuração local
+appsettings.Development.json
+appsettings.Local.json
+
+# Certificados
+*.pfx
+*.p12
+
+# Arquivos Docker (evitar recursão)
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# Cache do NuGet
+.nuget/
+
+# Arquivos de teste
+TestResults/
+*.trx
+
+# Arquivos específicos do projeto
+PR_*.md

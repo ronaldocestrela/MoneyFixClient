@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  moneyfix-client:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: moneyfix-client
+    ports:
+      - "5133:5133"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:5133
+    restart: unless-stopped
+    networks:
+      - moneyfix-network
+
+volumes:
+  app-logs:
+    driver: local
+
+networks:
+  moneyfix-network:
+    driver: bridge
