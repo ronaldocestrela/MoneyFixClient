@@ -9,12 +9,30 @@
 
 <div class="container-fluid">
     <div class="row">
-        <div class="col-12">
+        <div class="col-12 col-lg-8">
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h2>
                     <i class="fas fa-chart-line text-primary me-2"></i>
                     Dashboard
                 </h2>
+            </div>
+        </div>
+        <div class="col-12 col-lg-4">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div class="w-100">
+                    <div class="d-flex align-items-center gap-2">
+                        <input type="date" class="form-control"
+                                @bind="startDate"
+                                @bind:event="onchange"
+                                max="@endDate.ToString("yyyy-MM-dd")" />
+                        <span class="text-muted text-nowrap">até</span>
+                        <input type="date" class="form-control"
+                                @bind="endDate"
+                                @bind:event="onchange"
+                                min="@startDate.ToString("yyyy-MM-dd")"
+                                max="@DateTime.Now.ToString("yyyy-MM-dd")" />
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -26,7 +44,16 @@
                     <div class="d-flex justify-content-between">
                         <div>
                             <h6 class="card-title">Receitas</h6>
-                            <h4>R$ 5.450,00</h4>
+                            @if (isLoadingProfit)
+                            {
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Carregando...</span>
+                                </div>
+                            }
+                            else
+                            {
+                                <h4>@totalProfit.TotalIncome.ToString("C")</h4>
+                            }
                         </div>
                         <div class="align-self-center">
                             <i class="fas fa-arrow-up fa-2x"></i>
@@ -42,7 +69,16 @@
                     <div class="d-flex justify-content-between">
                         <div>
                             <h6 class="card-title">Despesas</h6>
-                            <h4>R$ 3.280,00</h4>
+                            @if (isLoadingProfit)
+                            {
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Carregando...</span>
+                                </div>
+                            }
+                            else
+                            {
+                                <h4>@totalProfit.TotalExpense.ToString("C")</h4>
+                            }
                         </div>
                         <div class="align-self-center">
                             <i class="fas fa-arrow-down fa-2x"></i>
@@ -58,7 +94,16 @@
                     <div class="d-flex justify-content-between">
                         <div>
                             <h6 class="card-title">Saldo</h6>
-                            <h4>R$ 2.170,00</h4>
+                            @if (isLoadingProfit)
+                            {
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Carregando...</span>
+                                </div>
+                            }
+                            else
+                            {
+                                <h4>@totalProfit.NetProfit.ToString("C")</h4>
+                            }
                         </div>
                         <div class="align-self-center">
                             <i class="fas fa-wallet fa-2x"></i>
@@ -74,7 +119,16 @@
                     <div class="d-flex justify-content-between">
                         <div>
                             <h6 class="card-title">Transações</h6>
-                            <h4>28</h4>
+                            @if (isLoadingProfit)
+                            {
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Carregando...</span>
+                                </div>
+                            }
+                            else
+                            {
+                                <h4>@totalProfit.TransactionCount</h4>
+                            }
                         </div>
                         <div class="align-self-center">
                             <i class="fas fa-exchange-alt fa-2x"></i>
@@ -105,32 +159,6 @@
                                     <th>Valor</th>
                                 </tr>
                             </thead>
-                            @* <tbody>
-                                <tr>
-                                    <td>28/08/2025</td>
-                                    <td>Supermercado XYZ</td>
-                                    <td><span class="badge bg-warning">Alimentação</span></td>
-                                    <td><span class="text-danger">-R$ 150,00</span></td>
-                                </tr>
-                                <tr>
-                                    <td>27/08/2025</td>
-                                    <td>Salário</td>
-                                    <td><span class="badge bg-primary">Renda</span></td>
-                                    <td><span class="text-success">+R$ 3.500,00</span></td>
-                                </tr>
-                                <tr>
-                                    <td>26/08/2025</td>
-                                    <td>Gasolina</td>
-                                    <td><span class="badge bg-secondary">Transporte</span></td>
-                                    <td><span class="text-danger">-R$ 80,00</span></td>
-                                </tr>
-                                <tr>
-                                    <td>25/08/2025</td>
-                                    <td>Internet</td>
-                                    <td><span class="badge bg-info">Serviços</span></td>
-                                    <td><span class="text-danger">-R$ 89,90</span></td>
-                                </tr>
-                            </tbody> *@
                             @if (isLoadingLastTransactions)
                             {
                                 <tbody>
@@ -152,8 +180,8 @@
                                             <td>@transaction.TransactionDate.ToString("dd/MM/yyyy")</td>
                                             <td>@transaction.TransactionDescription</td>
                                             <td>
-                                                <span class="badge @(transaction.IsExpense ? "bg-danger" : "bg-success")">
-                                                    @(transaction.IsExpense ? "Despesa" : "Receita")
+                                                <span class="badge" style="background-color: @transaction.CategoryColor; color: #fff;">
+                                                    @transaction.CategoryName
                                                 </span>
                                             </td>
                                             <td>
@@ -188,42 +216,34 @@
                     </h5>
                 </div>
                 <div class="card-body">
-                    <div class="mb-3">
-                        <div class="d-flex justify-content-between mb-1">
-                            <span>Alimentação</span>
-                            <span>35%</span>
+                    
+                    @if (isLoadingExpensesByCategory)
+                    {
+                        <div class="text-center">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Carregando...</span>
+                            </div>
                         </div>
-                        <div class="progress">
-                            <div class="progress-bar bg-warning" style="width: 35%"></div>
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <div class="d-flex justify-content-between mb-1">
-                            <span>Transporte</span>
-                            <span>25%</span>
-                        </div>
-                        <div class="progress">
-                            <div class="progress-bar bg-secondary" style="width: 25%"></div>
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <div class="d-flex justify-content-between mb-1">
-                            <span>Serviços</span>
-                            <span>20%</span>
-                        </div>
-                        <div class="progress">
-                            <div class="progress-bar bg-info" style="width: 20%"></div>
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <div class="d-flex justify-content-between mb-1">
-                            <span>Outros</span>
-                            <span>20%</span>
-                        </div>
-                        <div class="progress">
-                            <div class="progress-bar bg-dark" style="width: 20%"></div>
-                        </div>
-                    </div>
+                    }
+                    else if (expensesByCategory.Any())
+                    {
+                        @foreach (var expense in expensesByCategory)
+                        {
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span>@expense.CategoryName</span>
+                                    <span>@expense.Percentage.ToString("F2")%</span>
+                                </div>
+                                <div class="progress">
+                                    <div class="progress-bar" style="width: @expense.Percentage.ToString("F0")%; background-color: @expense.Color"></div>
+                                </div>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <p class="text-center">Nenhuma despesa por categoria encontrada.</p>
+                    }
                 </div>
             </div>
         </div>
@@ -232,11 +252,70 @@
 
 @code {
     private List<Transaction> recentTransactions = new();
+    private Profit totalProfit = new();
+    private List<ExpenseByCategory> expensesByCategory = new();
     private bool isLoadingLastTransactions = false;
+    private bool isLoadingProfit = false;
+    private bool isLoadingExpensesByCategory = false;
+    private DateTime _startDate = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1, 0, 0, 0);
+    private DateTime _endDate = DateTime.Now;
+
+    private DateTime startDate
+    {
+        get => _startDate;
+        set
+        {
+            if (_startDate != value)
+            {
+                _startDate = value;
+                _ = InvokeAsync(RefreshData);
+            }
+        }
+    }
+
+    private DateTime endDate
+    {
+        get => _endDate;
+        set
+        {
+            if (_endDate != value)
+            {
+                _endDate = value;
+                _ = InvokeAsync(RefreshData);
+            }
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadRecentTransactions();
+        await RefreshData();
+    }
+
+    private async Task RefreshData()
+    {
+        await Task.WhenAll(
+            LoadRecentTransactions(),
+            LoadTotalProfit(),
+            LoadExpensesByCategory()
+        );
+    }
+
+    private async Task LoadTotalProfit()
+    {
+        isLoadingProfit = true;
+        try
+        {
+            totalProfit = await TransactionService.GetTotalTransactionsAsync(startDate, endDate);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Erro ao carregar lucro total: {ex.Message}");
+        }
+        finally
+        {
+            isLoadingProfit = false;
+            StateHasChanged();
+        }
     }
     private async Task HandleLogout()
     {
@@ -249,7 +328,7 @@
         isLoadingLastTransactions = true;
         try
         {
-            recentTransactions = await TransactionService.GetLastTransactionsAsync();
+            recentTransactions = await TransactionService.GetLastTransactionsAsync(startDate, endDate);
         }
         catch (Exception ex)
         {
@@ -258,6 +337,24 @@
         finally
         {
             isLoadingLastTransactions = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadExpensesByCategory()
+    {
+        isLoadingExpensesByCategory = true;
+        try
+        {
+            expensesByCategory = await TransactionService.GetExpensesByCategoryAsync(startDate, endDate);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Erro ao carregar despesas por categoria: {ex.Message}");
+        }
+        finally
+        {
+            isLoadingExpensesByCategory = false;
             StateHasChanged();
         }
     }

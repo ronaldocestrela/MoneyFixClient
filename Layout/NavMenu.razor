@@ -5,7 +5,7 @@
 <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
         <a class="navbar-brand" href="">
-            <i class="fas fa-wallet me-2"></i>
+            <img src="images/mascote.png" alt="Mascote" style="height:32px; width:auto; margin-right:8px;" />
             MoneyFix
         </a>
         <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
@@ -35,7 +35,7 @@
                 </div>
                 <div class="nav-item px-3">
                     <NavLink class="nav-link" href="/reports">
-                        <i class="fas fa-chart-bar me-2"></i> Relatórios
+                        <i class="fas fa-chart-bar me-2"></i> Relatórios <span class="badge bg-secondary">em breve</span>
                     </NavLink>
                 </div>
             </Authorized>
@@ -43,6 +43,11 @@
                 <div class="nav-item px-3">
                     <NavLink class="nav-link" href="/login">
                         <i class="fas fa-sign-in-alt me-2"></i> Login
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="/register">
+                        <i class="fas fa-user-plus me-2"></i> Criar Conta
                     </NavLink>
                 </div>
             </NotAuthorized>
