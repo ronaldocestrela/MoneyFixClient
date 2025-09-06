@@ -1,0 +1,219 @@
+@page "/register"
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Web
+@using MoneyFixClient.Models
+@using MoneyFixClient.Services
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Registro - MoneyFix</PageTitle>
+
+<div class="container-fluid vh-100 d-flex align-items-center">
+    <div class="row w-100 justify-content-center">
+        <div class="col-12 col-md-8 col-lg-6 col-xl-4">
+            <div class="card shadow-lg">
+                <div class="card-body p-4">
+                    <div class="text-center mb-4">
+                        <i class="fas fa-user-plus fa-3x text-primary mb-3"></i>
+                        <h3 class="card-title text-primary">Criar Conta</h3>
+                        <p class="text-muted">Junte-se ao MoneyFix e comece a gerenciar suas finanças</p>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(alertMessage))
+                    {
+                        <div class="alert @(alertType == "success" ? "alert-success" : "alert-danger") alert-dismissible fade show" role="alert">
+                            <i class="fas @(alertType == "success" ? "fa-check-circle" : "fa-exclamation-triangle") me-2"></i>
+                            @alertMessage
+                            <button type="button" class="btn-close" @onclick="ClearAlert"></button>
+                        </div>
+                    }
+
+                    <EditForm Model="@registerModel" OnValidSubmit="@HandleRegister" class="needs-validation" novalidate>
+                        <DataAnnotationsValidator />
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="firstName" class="form-label">
+                                    <i class="fas fa-user me-2"></i>Primeiro Nome
+                                </label>
+                                <InputText @bind-Value="registerModel.UserFirstName" 
+                                           class="form-control" 
+                                           id="firstName" 
+                                           placeholder="Ex: João" />
+                                <ValidationMessage For="@(() => registerModel.UserFirstName)" class="text-danger" />
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="lastName" class="form-label">
+                                    <i class="fas fa-user me-2"></i>Último Nome
+                                </label>
+                                <InputText @bind-Value="registerModel.UserLastName" 
+                                           class="form-control" 
+                                           id="lastName" 
+                                           placeholder="Ex: Silva" />
+                                <ValidationMessage For="@(() => registerModel.UserLastName)" class="text-danger" />
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="email" class="form-label">
+                                <i class="fas fa-envelope me-2"></i>Email
+                            </label>
+                            <InputText @bind-Value="registerModel.Email" 
+                                       type="email" 
+                                       class="form-control" 
+                                       id="email" 
+                                       placeholder="seu@email.com" />
+                            <ValidationMessage For="@(() => registerModel.Email)" class="text-danger" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="password" class="form-label">
+                                <i class="fas fa-lock me-2"></i>Senha
+                            </label>
+                            <div class="input-group">
+                                <InputText @bind-Value="registerModel.Password" 
+                                           type="@(showPassword ? "text" : "password")" 
+                                           class="form-control" 
+                                           id="password" 
+                                           placeholder="Sua senha" />
+                                <button class="btn btn-outline-secondary" type="button" @onclick="TogglePasswordVisibility">
+                                    <i class="fas @(showPassword ? "fa-eye-slash" : "fa-eye")"></i>
+                                </button>
+                            </div>
+                            <ValidationMessage For="@(() => registerModel.Password)" class="text-danger" />
+                            <div class="form-text">
+                                <small>Mínimo 6 caracteres. Recomendamos usar letras, números e símbolos.</small>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="confirmPassword" class="form-label">
+                                <i class="fas fa-lock me-2"></i>Confirmar Senha
+                            </label>
+                            <div class="input-group">
+                                <InputText @bind-Value="registerModel.ConfirmPassword" 
+                                           type="@(showConfirmPassword ? "text" : "password")" 
+                                           class="form-control" 
+                                           id="confirmPassword" 
+                                           placeholder="Confirme sua senha" />
+                                <button class="btn btn-outline-secondary" type="button" @onclick="ToggleConfirmPasswordVisibility">
+                                    <i class="fas @(showConfirmPassword ? "fa-eye-slash" : "fa-eye")"></i>
+                                </button>
+                            </div>
+                            <ValidationMessage For="@(() => registerModel.ConfirmPassword)" class="text-danger" />
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg" disabled="@isLoading">
+                                @if (isLoading)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                                    <text>Criando conta...</text>
+                                }
+                                else
+                                {
+                                    <i class="fas fa-user-plus me-2"></i>
+                                    <text>Criar Conta</text>
+                                }
+                            </button>
+                        </div>
+                    </EditForm>
+
+                    <hr class="my-4">
+
+                    <div class="text-center">
+                        <p class="mb-0">
+                            Já tem uma conta?
+                            <a href="/login" class="text-decoration-none">
+                                <i class="fas fa-sign-in-alt me-1"></i>Fazer Login
+                            </a>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private RegisterRequest registerModel = new();
+    private bool isLoading = false;
+    private bool showPassword = false;
+    private bool showConfirmPassword = false;
+    private string alertMessage = string.Empty;
+    private string alertType = string.Empty;
+
+    private void TogglePasswordVisibility()
+    {
+        showPassword = !showPassword;
+    }
+
+    private void ToggleConfirmPasswordVisibility()
+    {
+        showConfirmPassword = !showConfirmPassword;
+    }
+
+    private async Task HandleRegister()
+    {
+        if (isLoading) return;
+
+        isLoading = true;
+        ClearAlert();
+        StateHasChanged();
+
+        try
+        {
+            var result = await AuthService.RegisterAsync(registerModel);
+
+            if (result.Success)
+            {
+                ShowAlert("Conta criada com sucesso! Você será redirecionado para o login.", "success");
+                
+                // Aguarda 2 segundos e redireciona para o login
+                await Task.Delay(2000);
+                Navigation.NavigateTo("/login");
+            }
+            else
+            {
+                ShowAlert(result.Message, "error");
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowAlert($"Erro inesperado: {ex.Message}", "error");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ShowAlert(string message, string type)
+    {
+        alertMessage = message;
+        alertType = type;
+        StateHasChanged();
+
+        // Auto-hide alert após 5 segundos (exceto sucesso que redireciona)
+        if (type != "success")
+        {
+            Task.Delay(5000).ContinueWith(_ => 
+            {
+                InvokeAsync(() => 
+                {
+                    ClearAlert();
+                    StateHasChanged();
+                });
+            });
+        }
+    }
+
+    private void ClearAlert()
+    {
+        alertMessage = string.Empty;
+        alertType = string.Empty;
+    }
+}
