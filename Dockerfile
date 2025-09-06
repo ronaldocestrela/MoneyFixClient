@@ -19,20 +19,41 @@ RUN dotnet build -c Release -o /app/build
 # Publica a aplicação
 RUN dotnet publish -c Release -o /app/publish
 
-# Use a imagem oficial do ASP.NET Core runtime
-FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS final
+# Use a imagem oficial do Nginx para servir a aplicação
+FROM nginx:alpine AS final
 
-# Define o diretório de trabalho
-WORKDIR /app
+# Remove a configuração padrão do Nginx
+RUN rm -rf /usr/share/nginx/html/*
 
-# Copia os arquivos publicados
-COPY --from=build /app/publish .
+# Copia os arquivos publicados para o diretório do Nginx
+COPY --from=build /app/publish/wwwroot /usr/share/nginx/html
 
-# Define a variável de ambiente para a porta
-ENV ASPNETCORE_URLS=http://+:5133
+# Cria configuração do Nginx para SPA
+RUN echo 'server { \
+    listen 5133; \
+    server_name localhost; \
+    root /usr/share/nginx/html; \
+    index index.html; \
+    location / { \
+        try_files $uri $uri/ /index.html; \
+    } \
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|dll|wasm|dat)$ { \
+        expires 1y; \
+        add_header Cache-Control "public, immutable"; \
+        access_log off; \
+    } \
+    location ~* \.wasm$ { \
+        add_header Content-Type application/wasm; \
+    } \
+    gzip on; \
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript application/wasm; \
+}' > /etc/nginx/conf.d/default.conf
+
+# Remove a configuração padrão
+RUN rm -f /etc/nginx/conf.d/default.conf.bak
 
 # Expõe a porta 5133
 EXPOSE 5133
 
-# Comando para iniciar a aplicação
-ENTRYPOINT ["dotnet", "MoneyFixClient.dll"]
+# Comando para iniciar o Nginx
+CMD ["nginx", "-g", "daemon off;"]
