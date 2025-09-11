@@ -1,0 +1,40 @@
+pipeline {
+    agent any
+    
+    environment {
+        APP_NAME = 'moneyfix-client'
+        PORT = '5133'
+    }
+    
+    stages {
+        stage('Build & Deploy') {
+            steps {
+                // Checkout é automático
+                
+                // Build e Deploy em um só estágio
+                sh '''
+                    # Parar container anterior
+                    docker-compose down || true
+                    
+                    # Build nova imagem
+                    docker-compose build --no-cache
+                    
+                    # Iniciar container
+                    docker-compose up -d
+                    
+                    # Health check simples
+                    sleep 15
+                    curl -f http://localhost:${PORT}/ || exit 1
+                    
+                    echo "Deploy concluído com sucesso!"
+                '''
+            }
+        }
+    }
+    
+    post {
+        failure {
+            sh 'docker-compose down || true'
+        }
+    }
+}
