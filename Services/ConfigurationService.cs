@@ -42,25 +42,30 @@ public class ConfigurationService
 
     private static AppSettings GetDefaultSettings()
     {
+        // Defina as URLs para desenvolvimento e produção
+        var isDevelopment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Development";
+
         return new AppSettings
         {
             ApiSettings = new ApiSettings
             {
-                BaseUrl = "http://localhost:5223",
-                LoginEndpoint = "/api/login",
-                Timeout = 30
+            BaseUrl = isDevelopment
+                ? "http://localhost:5223" // URL de desenvolvimento
+                : "https://api.moneyfix.com.br", // URL de produção
+            LoginEndpoint = "/api/login",
+            Timeout = 30
             },
             Authentication = new AuthenticationSettings
             {
-                TokenKey = "authToken",
-                RedirectAfterLogin = "/dashboard",
-                RedirectAfterLogout = "/login"
+            TokenKey = "authToken",
+            RedirectAfterLogin = "/dashboard",
+            RedirectAfterLogout = "/login"
             },
             UI = new UISettings
             {
-                AppName = "MoneyFix",
-                Version = "1.0.0",
-                Theme = "bootstrap"
+            AppName = "MoneyFix",
+            Version = "1.0.0",
+            Theme = "bootstrap"
             }
         };
     }

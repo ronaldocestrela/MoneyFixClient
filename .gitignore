@@ -228,8 +228,10 @@ node_modules/
 # Azure Functions artifacts
 bin
 obj
-appsettings.json
 local.settings.json
+
+# Arquivos de configuração específicos (excluir alguns appsettings)
+appsettings.current.json
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd

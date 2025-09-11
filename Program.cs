@@ -32,7 +32,7 @@ builder.Services.AddScoped(sp =>
     var httpClient = new HttpClient(authHeaderHandler)
     {
         // Configure aqui a URL base da sua API
-        BaseAddress = new Uri("http://localhost:5223") // URL da API MoneyFix
+        BaseAddress = new Uri(builder.Configuration["BaseUrl"] ?? "http://localhost:5223") // URL da API MoneyFix
     };
     
     return httpClient;
