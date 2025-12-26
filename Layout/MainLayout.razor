@@ -1,4 +1,5 @@
 ﻿@inherits LayoutComponentBase
+@using System.Security.Claims
 @inject AuthService AuthService
 @inject NavigationManager Navigation
 
@@ -38,7 +39,7 @@
 </div>
 
 @code {
-    private string GetUserName(System.Security.Claims.ClaimsPrincipal user)
+    private string GetUserName(ClaimsPrincipal user)
     {
         return user?.Identity?.Name ?? user?.FindFirst("email")?.Value ?? "Usuário";
     }
