@@ -22,6 +22,7 @@ builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<CategoryService>();
 builder.Services.AddScoped<TransactionService>();
 builder.Services.AddScoped<AuthHeaderHandler>();
+builder.Services.AddScoped<WalletService>();
 
 // Configuração do HttpClient com AuthHeaderHandler
 builder.Services.AddScoped(sp =>

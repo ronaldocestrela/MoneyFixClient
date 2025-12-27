@@ -5,15 +5,10 @@ namespace MoneyFixClient.Services;
 /// <summary>
 /// Serviço para gerenciar configurações da aplicação
 /// </summary>
-public class ConfigurationService
+public class ConfigurationService(HttpClient httpClient)
 {
-    private readonly HttpClient _httpClient;
+    private readonly HttpClient _httpClient = httpClient;
     private AppSettings? _appSettings;
-
-    public ConfigurationService(HttpClient httpClient)
-    {
-        _httpClient = httpClient;
-    }
 
     /// <summary>
     /// Carrega as configurações da aplicação
