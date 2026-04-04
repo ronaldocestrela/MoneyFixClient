@@ -1,0 +1,34 @@
+---
+description: Convenções das páginas Razor (rotas, UI, serviços)
+globs: Pages/*.razor
+alwaysApply: false
+---
+
+# Camada Pages
+
+- **`@page "/rota"`** no topo do arquivo.
+- Páginas autenticadas: **`@attribute [Authorize]`** e `@using Microsoft.AspNetCore.Authorization` quando necessário.
+- **Injeção**: `@inject` dos **serviços** (`AuthService`, `TransactionService`, etc.); evitar `@inject HttpClient` nas páginas.
+- **Título**: `<PageTitle>Título - MoneyFix</PageTitle>`.
+
+## UI
+
+- **Bootstrap 5**: `container-fluid`, grid `row` / `col-*`, `card`, `table`, `btn`, `form-control`, `alert`, `modal` (padrão do projeto).
+- **Ícones**: Font Awesome (`fas fa-*`, `fa-solid fa-*`, `fa-regular fa-*`).
+- **Loading**: `spinner-border` + flag `isLoading` (ou equivalente por seção).
+
+## Formulários
+
+- `EditForm` + `DataAnnotationsValidator` + `ValidationMessage` para requests com validação em `Models`.
+- Componentes: `InputText`, `InputNumber`, `InputDate`, `InputSelect` com classes Bootstrap.
+
+## Modais (padrão atual)
+
+- Controle por classes CSS (`show d-block`) e overlay `background-color: rgba(0,0,0,0.5)` — sem depender de JS do Bootstrap para modal, salvo exceções.
+
+## Bloco `@code`
+
+- Estado privado no topo; `OnInitializedAsync` para carregar dados.
+- Após mutações assíncronas que afetam UI: `StateHasChanged()` quando necessário.
+- Alertas: padrão com mensagem + tipo; auto-dismiss com `Task.Delay` + `InvokeAsync` se seguir páginas existentes.
+- **Paginação**: `currentPage`, `pageSize`, `totalPages`, `totalItems` alinhados ao retorno de `PaginatedResult` / header `Pagination`.

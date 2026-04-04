@@ -18,6 +18,7 @@ builder.Services.AddAuthorizationCore();
 builder.Services.AddScoped<AuthenticationStateProvider, CustomAuthenticationStateProvider>();
 
 // Configuração dos Serviços
+builder.Services.AddScoped<TokenRefreshCoordinator>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<CategoryService>();
 builder.Services.AddScoped<TransactionService>();
@@ -25,17 +26,17 @@ builder.Services.AddScoped<AuthHeaderHandler>();
 builder.Services.AddScoped<WalletService>();
 
 // Configuração do HttpClient com AuthHeaderHandler
+var apiBaseUrl = ApiBaseUrlResolver.Resolve(builder.Configuration);
 builder.Services.AddScoped(sp =>
 {
     var authHeaderHandler = sp.GetRequiredService<AuthHeaderHandler>();
     authHeaderHandler.InnerHandler = new HttpClientHandler();
-    
+
     var httpClient = new HttpClient(authHeaderHandler)
     {
-        // Configure aqui a URL base da sua API
-        BaseAddress = new Uri(builder.Configuration["BaseUrl"] ?? "http://localhost:5223") // URL da API MoneyFix
+        BaseAddress = new Uri(apiBaseUrl)
     };
-    
+
     return httpClient;
 });
 

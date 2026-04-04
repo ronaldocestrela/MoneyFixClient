@@ -1,0 +1,21 @@
+---
+description: Convenções de layout (shell, menu, redirecionamento)
+globs: Layout/*.razor
+alwaysApply: false
+---
+
+# Camada Layout
+
+- **`MainLayout.razor`**: `@inherits LayoutComponentBase`; estrutura com sidebar + `main`; conteúdo da rota em `@Body`.
+- **Usuário logado**: `<AuthorizeView>` com `<Authorized>` / `<NotAuthorized>` para ações no topo (ex.: saudação + logout ou link de login).
+- **Logout**: chamar `AuthService.LogoutAsync()` e `Navigation.NavigateTo("/login")` (ou `"/"` com `forceLoad` se seguir o padrão de uma tela específica).
+
+## NavMenu
+
+- Links com `<NavLink href="..." Match="NavLinkMatch.All">` quando a home/dashboard deve destacar rota exata.
+- Itens para usuários autenticados dentro de `<Authorized>`; login/registro em `<NotAuthorized>`.
+- Ícones Font Awesome alinhados ao restante do app.
+
+## RedirectToLogin
+
+- Componente dedicado: redirecionar para **`/login`** quando a rota exige autenticação e o usuário não está autenticado (usado por `App.razor` / `AuthorizeRouteView`).

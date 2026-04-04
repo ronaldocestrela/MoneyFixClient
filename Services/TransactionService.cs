@@ -1,6 +1,7 @@
 using MoneyFixClient.Models;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Linq;
 
 namespace MoneyFixClient.Services;
 
@@ -187,16 +188,16 @@ public class TransactionService
     }
 
     /// <summary>
-    /// Lista todas as transações do usuário
+    /// Lista todas as transações do usuário (paginação suportada)
     /// </summary>
     /// <returns>Lista de transações</returns>
-    public async Task<List<Transaction>> GetTransactionsAsync()
+    public async Task<PaginatedResult<List<Transaction>>> GetTransactionsAsync(int pageNumber = 1, int pageSize = 1000)
     {
         try
         {
-            Console.WriteLine("TransactionService: Buscando transações");
+            Console.WriteLine($"TransactionService: Buscando transações - página {pageNumber}, tamanho {pageSize}");
 
-            var response = await _httpClient.GetAsync("/api/transactions");
+            var response = await _httpClient.GetAsync($"/api/transactions?pageNumber={pageNumber}&pageSize={pageSize}");
 
             if (response.IsSuccessStatusCode)
             {
@@ -204,20 +205,51 @@ public class TransactionService
                 var transactions = JsonSerializer.Deserialize<List<Transaction>>(content, new JsonSerializerOptions
                 {
                     PropertyNameCaseInsensitive = true
-                });
+                }) ?? new List<Transaction>();
 
-                Console.WriteLine($"TransactionService: {transactions?.Count ?? 0} transações encontradas");
-                return transactions ?? new List<Transaction>();
+                Pagination? pagination = null;
+                if (response.Headers.TryGetValues("Pagination", out var values))
+                {
+                    var header = values.FirstOrDefault();
+                    if (!string.IsNullOrEmpty(header))
+                    {
+                        try
+                        {
+                            pagination = JsonSerializer.Deserialize<Pagination>(header, new JsonSerializerOptions
+                            {
+                                PropertyNameCaseInsensitive = true
+                            });
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"TransactionService: Falha ao desserializar header Pagination: {ex.Message}");
+                        }
+                    }
+                }
+
+                Console.WriteLine($"TransactionService: {transactions.Count} transações encontradas (pagina: {pagination?.CurrentPage})");
+                return new PaginatedResult<List<Transaction>>
+                {
+                    Items = transactions,
+                    Pagination = pagination
+                };
             }
 
             Console.WriteLine($"TransactionService: Erro ao buscar transações - Status: {response.StatusCode}");
-            return new List<Transaction>();
+            return new PaginatedResult<List<Transaction>> { Items = new List<Transaction>() };
         }
         catch (Exception ex)
         {
             Console.WriteLine($"TransactionService: Exceção ao buscar transações: {ex.Message}");
-            return new List<Transaction>();
+            return new PaginatedResult<List<Transaction>> { Items = new List<Transaction>() };
         }
+    }
+
+    // Sobrecarga para compatibilidade com código existente
+    public async Task<List<Transaction>> GetTransactionsAsync()
+    {
+        var result = await GetTransactionsAsync(1, 1000);
+        return result.Items;
     }
 
     /// <summary>
@@ -238,15 +270,15 @@ public class TransactionService
                     PropertyNameCaseInsensitive = true
                 });
 
-                return transactions ?? [];
+                return transactions ?? new List<Transaction>();
             }
 
-            return [];
+            return new List<Transaction>();
         }
         catch (Exception ex)
         {
             Console.WriteLine($"CategoryService: Exceção ao buscar transações: {ex.Message}");
-            return [];
+            return new List<Transaction>();
         }
     }
 
@@ -309,15 +341,15 @@ public class TransactionService
                     PropertyNameCaseInsensitive = true
                 });
 
-                return expensesByCategory ?? [];
+                return expensesByCategory ?? new List<ExpenseByCategory>();
             }
 
-            return [];
+            return new List<ExpenseByCategory>();
         }
         catch (Exception ex)
         {
             Console.WriteLine($"CategoryService: Exceção ao buscar despesas por categoria: {ex.Message}");
-            return [];
+            return new List<ExpenseByCategory>();
         }
     }
 }

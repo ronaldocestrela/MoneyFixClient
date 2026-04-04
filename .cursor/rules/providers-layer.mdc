@@ -1,0 +1,31 @@
+---
+description: Convenções dos providers (estado de autenticação Blazor)
+globs: Providers/*.cs
+alwaysApply: false
+---
+
+# Camada Providers
+
+- **Namespace**: `MoneyFixClient.Providers`.
+- **`CustomAuthenticationStateProvider`** herda `AuthenticationStateProvider`.
+
+## Fonte do token
+
+- Ler token JWT (ou string de sessão) de **`ILocalStorageService`** com chave **`"authToken"`** (consistente com `AuthService` e `AuthHeaderHandler`).
+
+## Expiração
+
+- Validar expiração com **`JwtSecurityToken.ValidTo`** (UTC) após ler o token; não depender só de **`"tokenExpiration"`** no localStorage (desserialização JSON de `DateTime` pode marcar o token como expirado indevidamente).
+
+## Claims
+
+- Com token válido, ler o JWT com **`JwtSecurityTokenHandler`**, mapear `sub` → `ClaimTypes.NameIdentifier`, `email` → `ClaimTypes.Email`, `name` → `ClaimTypes.Name`, e usar esquema de autenticação **`"jwt"`**.
+
+## Notificação de mudança
+
+- **`MarkUserAsAuthenticated()`**: reler estado e chamar `NotifyAuthenticationStateChanged(Task.FromResult(...))`.
+- **`MarkUserAsLoggedOut()`**: principal anônimo + `NotifyAuthenticationStateChanged`.
+
+## Acoplamento
+
+- `AuthService` pode fazer cast para `CustomAuthenticationStateProvider` para notificar após login/logout — manter essa coerência ao alterar um dos lados.

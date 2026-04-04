@@ -78,17 +78,17 @@ public class WalletService(HttpClient httpClient)
                     PropertyNameCaseInsensitive = true
                 });
                 
-                return wallets ?? [];
+                return wallets ?? new List<Wallet>();
             }
 
             var errorContent = await response.Content.ReadAsStringAsync();
             Console.WriteLine($"WalletService: Erro ao obter carteiras - Status: {response.StatusCode}, Content: {errorContent}");
-            return [];
+            return new List<Wallet>();
         }
         catch (Exception ex)
         {
             Console.WriteLine($"WalletService: Exceção ao obter carteiras: {ex.Message}");
-            return [];
+            return new List<Wallet>();
         }
     }
 }

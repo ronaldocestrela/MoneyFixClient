@@ -1,0 +1,27 @@
+---
+description: Convenções gerais do MoneyFixClient (Blazor WASM, API, idioma)
+alwaysApply: true
+---
+
+# MoneyFixClient — Projeto
+
+- **Stack**: Blazor WebAssembly, C#, **.NET 10** (`net10.0`), namespace raiz `MoneyFixClient`.
+- **Idioma**: mensagens de UI, XML docs e comentários de negócio em **português** quando aplicável.
+- **Backend**: API REST externa; autenticação **JWT** com header `Authorization: Bearer <token>`.
+- **Base URL dev** (fallback comum): `http://localhost:5000` — chaves `BaseUrl` ou `ApiSettings:BaseUrl` em `wwwroot/appsettings.json`; `Program.cs` usa `ApiBaseUrlResolver`.
+- **Pacotes relevantes**: `Blazored.LocalStorage`, `Microsoft.AspNetCore.Components.Authorization`, `System.IdentityModel.Tokens.Jwt`.
+
+## Endpoints de referência
+
+- **Identity** (prefixo `/identity/`): `login`, `register`, `refresh`, `forgot-password`, `reset-password`, `logout`, `me` — ver `docs/api/01-auth.md`.
+- Transações: `/api/transactions`, dashboard: `/api/maindashboard/*`
+- Categorias: `/api/categories`, `/api/categories/add-category`
+- Carteiras: `/api/wallets/add-wallet`, `/api/wallets/get-wallets`
+
+## Commits (Conventional Commits, mensagens em português)
+
+Tipos: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`.
+
+## Documentação da API
+
+Integração detalhada em `docs/api/` (auth, categorias, contas, transações, reporting, etc.).

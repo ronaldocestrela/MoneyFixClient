@@ -1,0 +1,23 @@
+---
+description: Convenções de bootstrap do host WASM (Program.cs)
+globs: Program.cs
+alwaysApply: false
+---
+
+# Configuração (`Program.cs`)
+
+- **Host**: `WebAssemblyHostBuilder.CreateDefault(args)`.
+- **Root components**: `App` em `#app`; `HeadOutlet` em `head::after`.
+
+## Ordem sugerida de registro
+
+1. `AddBlazoredLocalStorage()`
+2. `AddAuthorizationCore()`
+3. `AddScoped<AuthenticationStateProvider, CustomAuthenticationStateProvider>()`
+4. Serviços de domínio: `TokenRefreshCoordinator`, `AuthService`, `CategoryService`, `TransactionService`, `WalletService`, `AuthHeaderHandler` — todos **`Scoped`**
+5. Fábrica do **`HttpClient`** com `AuthHeaderHandler` como `DelegatingHandler` e `InnerHandler = new HttpClientHandler()`
+6. **`BaseAddress`**: `new Uri(ApiBaseUrlResolver.Resolve(builder.Configuration))` (fallback `http://localhost:5000` em `ApiBaseUrlResolver`)
+
+## Observação
+
+- `wwwroot/appsettings.json`: definir **`BaseUrl`** na raiz e/ou **`ApiSettings:BaseUrl`** de forma consistente com a API.

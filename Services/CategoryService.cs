@@ -79,16 +79,16 @@ public class CategoryService(HttpClient httpClient)
                 });
                 
                 Console.WriteLine($"CategoryService: {categories?.Count ?? 0} categorias encontradas");
-                return categories ?? [];
+                return categories ?? new List<Category>();
             }
 
             Console.WriteLine($"CategoryService: Erro ao buscar categorias - Status: {response.StatusCode}");
-            return [];
+            return new List<Category>();
         }
         catch (Exception ex)
         {
             Console.WriteLine($"CategoryService: Exceção ao buscar categorias: {ex.Message}");
-            return [];
+            return new List<Category>();
         }
     }
 

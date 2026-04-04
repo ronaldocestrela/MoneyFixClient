@@ -1,11 +1,12 @@
 using Blazored.LocalStorage;
 using Microsoft.AspNetCore.Components.Authorization;
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 
 namespace MoneyFixClient.Providers;
 
 /// <summary>
-/// Provedor de estado de autenticação customizado para JWT
+/// Provedor de estado de autenticação: JWT do localStorage e claims do token.
 /// </summary>
 public class CustomAuthenticationStateProvider : AuthenticationStateProvider
 {
@@ -16,75 +17,84 @@ public class CustomAuthenticationStateProvider : AuthenticationStateProvider
         _localStorage = localStorage;
     }
 
-    /// <summary>
-    /// Obtém o estado atual de autenticação
-    /// </summary>
-    /// <returns>Estado de autenticação</returns>
+    /// <inheritdoc />
     public override async Task<AuthenticationState> GetAuthenticationStateAsync()
     {
         var token = await _localStorage.GetItemAsync<string>("authToken");
-        Console.WriteLine($"AuthStateProvider: Token encontrado? {!string.IsNullOrEmpty(token)}");
-        
-        if (!string.IsNullOrEmpty(token))
-        {
-            Console.WriteLine($"AuthStateProvider: Token primeiros 20 chars: {token[..Math.Min(20, token.Length)]}...");
-        }
 
         if (string.IsNullOrEmpty(token))
+            return new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()));
+
+        try
         {
-            Console.WriteLine("AuthStateProvider: Token vazio, retornando usuário anônimo");
+            var handler = new JwtSecurityTokenHandler();
+            if (!handler.CanReadToken(token))
+                return new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()));
+
+            var jwt = handler.ReadJwtToken(token);
+
+            // Usar ValidTo do JWT (UTC). Evita falsos "expirado" por desserialização de DateTime no localStorage.
+            if (jwt.ValidTo < DateTime.UtcNow)
+                return new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()));
+            var claims = new List<Claim>();
+
+            foreach (var claim in jwt.Claims)
+            {
+                switch (claim.Type)
+                {
+                    case JwtRegisteredClaimNames.Sub:
+                        claims.Add(new Claim(ClaimTypes.NameIdentifier, claim.Value));
+                        break;
+                    case "email":
+                        claims.Add(new Claim(ClaimTypes.Email, claim.Value));
+                        break;
+                    case "name":
+                        claims.Add(new Claim(ClaimTypes.Name, claim.Value));
+                        break;
+                    default:
+                        claims.Add(claim);
+                        break;
+                }
+            }
+
+            if (!claims.Any(c => c.Type == ClaimTypes.NameIdentifier))
+            {
+                var sub = jwt.Claims.FirstOrDefault(c => c.Type is JwtRegisteredClaimNames.Sub or "sub");
+                if (sub != null)
+                    claims.Add(new Claim(ClaimTypes.NameIdentifier, sub.Value));
+            }
+
+            if (!claims.Any(c => c.Type == ClaimTypes.Name))
+            {
+                var email = claims.FirstOrDefault(c => c.Type == ClaimTypes.Email)?.Value;
+                if (!string.IsNullOrEmpty(email))
+                    claims.Add(new Claim(ClaimTypes.Name, email));
+            }
+
+            var identity = new ClaimsIdentity(claims, "jwt");
+            return new AuthenticationState(new ClaimsPrincipal(identity));
+        }
+        catch
+        {
             return new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()));
         }
-
-        // Verifica se o token expirou baseado na data salva no localStorage
-        var tokenExpiration = await _localStorage.GetItemAsync<DateTime?>("tokenExpiration");
-        var isExpired = tokenExpiration.HasValue && tokenExpiration.Value < DateTime.UtcNow;
-        Console.WriteLine($"AuthStateProvider: Token expira em: {tokenExpiration:O}, Agora: {DateTime.UtcNow:O}");
-        Console.WriteLine($"AuthStateProvider: Token expirado por data salva? {isExpired}");
-        
-        if (isExpired)
-        {
-            Console.WriteLine("AuthStateProvider: Token expirado, retornando usuário anônimo");
-            return new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()));
-        }
-
-        // Como não é um JWT válido, cria claims básicas para autenticação
-        var claims = new List<Claim>
-        {
-            new Claim(ClaimTypes.Name, "User"),
-            new Claim(ClaimTypes.NameIdentifier, "user-id"),
-            new Claim("token", token[..Math.Min(10, token.Length)]) // Primeiros 10 chars do token
-        };
-        
-        Console.WriteLine($"AuthStateProvider: Claims criadas: {claims.Count}");
-        
-        var identity = new ClaimsIdentity(claims, "custom-token");
-        var user = new ClaimsPrincipal(identity);
-        
-        Console.WriteLine($"AuthStateProvider: Usuário autenticado com token customizado");
-        Console.WriteLine($"AuthStateProvider: Identity.IsAuthenticated: {identity.IsAuthenticated}");
-        return new AuthenticationState(user);
     }
 
     /// <summary>
-    /// Marca o usuário como autenticado
+    /// Notifica que o utilizador autenticou-se (tokens já gravados).
     /// </summary>
     public async Task MarkUserAsAuthenticated()
     {
-        Console.WriteLine("AuthStateProvider: MarkUserAsAuthenticated chamado");
         var authState = await GetAuthenticationStateAsync();
-        Console.WriteLine($"AuthStateProvider: Notificando mudança de estado. Usuário autenticado: {authState.User.Identity?.IsAuthenticated}");
         NotifyAuthenticationStateChanged(Task.FromResult(authState));
     }
 
     /// <summary>
-    /// Marca o usuário como deslogado
+    /// Notifica logout local.
     /// </summary>
     public void MarkUserAsLoggedOut()
     {
         var anonymousUser = new ClaimsPrincipal(new ClaimsIdentity());
-        var authState = Task.FromResult(new AuthenticationState(anonymousUser));
-        NotifyAuthenticationStateChanged(authState);
+        NotifyAuthenticationStateChanged(Task.FromResult(new AuthenticationState(anonymousUser)));
     }
-
 }

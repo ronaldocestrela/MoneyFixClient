@@ -1,0 +1,37 @@
+---
+description: Convenções da camada Services (HttpClient, API MoneyFix)
+globs: Services/*.cs
+alwaysApply: false
+---
+
+# Camada Services
+
+- **Namespace**: `MoneyFixClient.Services`.
+- **HttpClient**: injetado no construtor; **não** instanciar `new HttpClient()` manualmente nos serviços (o host configura `BaseAddress` e `AuthHeaderHandler`). Exceção intencional: `TokenRefreshCoordinator` usa um `HttpClient` interno sem `AuthHeaderHandler` para `POST /identity/refresh`.
+- **Estilo de construtor**: aceito tanto construtor explícito (`AuthService`) quanto primary constructor (`CategoryService(HttpClient httpClient)`).
+
+## Chamadas HTTP
+
+- Rotas: **`/identity/...`** (auth em `AuthService`) e **`/api/...`** (demais recursos).
+- Preferir `PostAsJsonAsync`, `PutAsJsonAsync`, `GetAsync`, `DeleteAsync` de `System.Net.Http.Json` quando couber.
+
+## Desserialização
+
+- `JsonSerializer.Deserialize<T>(...)` com `new JsonSerializerOptions { PropertyNameCaseInsensitive = true }` para payloads JSON.
+
+## Respostas da API
+
+- Muitos endpoints devolvem **ID como string JSON** (às vezes só aspas); tratar com `Deserialize<string>` ou leitura de string conforme o endpoint.
+- Erros: mapear `response.StatusCode` para mensagens amigáveis em português quando o projeto já usa `switch` em `HttpStatusCode`.
+
+## Paginação (transações)
+
+- Metadados podem vir no **header** `Pagination` (JSON no header); desserializar para `Pagination` e preencher `PaginatedResult<T>`.
+
+## Tratamento de erros e debug
+
+- Padrão atual: `try` / `catch` com `Console.WriteLine` para diagnóstico; retornar tipos de resposta do domínio (listas vazias, objetos default, ou `*Response` com `Message`).
+
+## Registro
+
+- Novos serviços devem ser registrados como **`AddScoped<...>()`** em `Program.cs` junto aos existentes.

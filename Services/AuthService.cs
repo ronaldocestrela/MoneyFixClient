@@ -2,202 +2,221 @@ using Blazored.LocalStorage;
 using Microsoft.AspNetCore.Components.Authorization;
 using MoneyFixClient.Models;
 using MoneyFixClient.Providers;
-using System.IdentityModel.Tokens.Jwt;
+using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 
 namespace MoneyFixClient.Services;
 
 /// <summary>
-/// Serviço responsável pela autenticação do usuário
+/// Serviço responsável pela autenticação do usuário (rotas sob o prefixo /api/identity da API).
+/// Caminhos sem "/" inicial para combinar com <see cref="ApiBaseUrlResolver"/> (ex.: base .../api/ + identity/register).
 /// </summary>
-public class AuthService
+public class AuthService(
+    HttpClient httpClient,
+    ILocalStorageService localStorage,
+    AuthenticationStateProvider authenticationStateProvider,
+    TokenRefreshCoordinator tokenRefreshCoordinator)
 {
-    private readonly HttpClient _httpClient;
-    private readonly ILocalStorageService _localStorage;
-    private readonly AuthenticationStateProvider _authenticationStateProvider;
+    private readonly HttpClient _httpClient = httpClient;
+    private readonly ILocalStorageService _localStorage = localStorage;
+    private readonly AuthenticationStateProvider _authenticationStateProvider = authenticationStateProvider;
+    private readonly TokenRefreshCoordinator _tokenRefreshCoordinator = tokenRefreshCoordinator;
 
-    public AuthService(
-        HttpClient httpClient, 
-        ILocalStorageService localStorage,
-        AuthenticationStateProvider authenticationStateProvider)
+    private static readonly JsonSerializerOptions JsonOptions = new()
     {
-        _httpClient = httpClient;
-        _localStorage = localStorage;
-        _authenticationStateProvider = authenticationStateProvider;
-    }
+        PropertyNameCaseInsensitive = true
+    };
 
     /// <summary>
-    /// Realiza o login do usuário
+    /// Realiza o login do usuário (POST .../api/identity/login).
     /// </summary>
-    /// <param name="loginRequest">Dados de login</param>
-    /// <returns>Resultado do login</returns>
-    public async Task<LoginResponse> LoginAsync(LoginRequest loginRequest)
+    public async Task<LoginResponse> LoginAsync(LoginRequest loginRequest, CancellationToken cancellationToken = default)
     {
         try
         {
-            var response = await _httpClient.PostAsJsonAsync("/api/login", loginRequest);
-            
+            var response = await _httpClient.PostAsJsonAsync("identity/login", loginRequest, cancellationToken);
+
             if (response.IsSuccessStatusCode)
             {
-                var content = await response.Content.ReadAsStringAsync();
-                var loginResponse = JsonSerializer.Deserialize<LoginResponse>(content, new JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true
-                });
+                var content = await response.Content.ReadAsStringAsync(cancellationToken);
+                var loginResponse = JsonSerializer.Deserialize<LoginResponse>(content, JsonOptions);
 
                 if (loginResponse != null && !string.IsNullOrEmpty(loginResponse.AccessToken))
                 {
-                    Console.WriteLine($"Login bem-sucedido! Token recebido: {loginResponse.AccessToken[..20]}...");
-                    
-                    // Armazena o access token no localStorage
-                    await _localStorage.SetItemAsync("authToken", loginResponse.AccessToken);
-                    Console.WriteLine("Token armazenado no localStorage como 'authToken'");
-
-                    // Log do ValidTo do JWT para depuração
-                    try
-                    {
-                        var handler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
-                        var jwt = handler.ReadJwtToken(loginResponse.AccessToken);
-                        Console.WriteLine($"[DEBUG] JWT ValidTo: {jwt.ValidTo:O} (UTC). Agora: {DateTime.UtcNow:O} (UTC)");
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"[DEBUG] Falha ao ler JWT: {ex.Message}");
-                    }
-                    
-                    // Armazena o refresh token também (opcional, para futuro uso)
-                    await _localStorage.SetItemAsync("refreshToken", loginResponse.RefreshToken);
-                    Console.WriteLine("Refresh token armazenado no localStorage");
-                    
-                    // Armazena informações de expiração
-                    await _localStorage.SetItemAsync("tokenExpiration", loginResponse.Expiration);
-                    Console.WriteLine($"Expiração armazenada: {loginResponse.Expiration}");
-                    
-                    // Verifica se foi realmente salvo
-                    var savedToken = await _localStorage.GetItemAsync<string>("authToken");
-                    Console.WriteLine($"Verificação: Token salvo existe? {!string.IsNullOrEmpty(savedToken)}");
-                    
-                    // Notifica o AuthenticationStateProvider sobre a mudança de estado
-                    await ((CustomAuthenticationStateProvider)_authenticationStateProvider).MarkUserAsAuthenticated();
-                    // Aguarda um pouco para garantir que o estado foi atualizado
-                    await Task.Delay(100);
-                    
+                    await StoreTokensAndNotifyAsync(loginResponse, cancellationToken);
                     loginResponse.Message = "Login realizado com sucesso!";
                     return loginResponse;
                 }
             }
 
-            var errorContent = await response.Content.ReadAsStringAsync();
-            return new LoginResponse 
-            { 
-                Message = !string.IsNullOrEmpty(errorContent) ? errorContent : "Credenciais inválidas" 
+            return new LoginResponse
+            {
+                Message = await ReadErrorMessageAsync(response, cancellationToken)
             };
         }
         catch (Exception ex)
         {
-            return new LoginResponse 
-            { 
-                Message = $"Erro ao fazer login: {ex.Message}" 
+            return new LoginResponse
+            {
+                Message = $"Erro ao fazer login: {ex.Message}"
             };
         }
     }
 
     /// <summary>
-    /// Realiza o logout do usuário
+    /// Registra usuário e persiste tokens (POST .../api/identity/register).
     /// </summary>
-    public async Task LogoutAsync()
+    public async Task<LoginResponse> RegisterAsync(RegisterRequest registerRequest, CancellationToken cancellationToken = default)
     {
         try
         {
-            // Faz a chamada para a API de logout
-            var response = await _httpClient.PostAsync("/api/account/logout", null);
-            
-            if (response.IsSuccessStatusCode || response.StatusCode == System.Net.HttpStatusCode.NoContent)
+            var response = await _httpClient.PostAsJsonAsync("identity/register", registerRequest, cancellationToken);
+
+            var content = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            if (response.IsSuccessStatusCode)
             {
-                Console.WriteLine("Logout realizado com sucesso na API");
+                var loginResponse = JsonSerializer.Deserialize<LoginResponse>(content, JsonOptions);
+                if (loginResponse != null && !string.IsNullOrEmpty(loginResponse.AccessToken))
+                {
+                    await StoreTokensAndNotifyAsync(loginResponse, cancellationToken);
+                    loginResponse.Message = "Conta criada com sucesso!";
+                    return loginResponse;
+                }
+
+                return new LoginResponse
+                {
+                    Message = "Resposta de registro inválida."
+                };
             }
-            else
+
+            return new LoginResponse
             {
-                Console.WriteLine($"Erro no logout da API: {response.StatusCode}");
-                // Continua com o logout local mesmo se a API falhar
-            }
+                Message = await ReadErrorMessageFromContentAsync(response.StatusCode, content, cancellationToken)
+            };
+        }
+        catch (HttpRequestException)
+        {
+            return new LoginResponse
+            {
+                Message = "Erro de conexão. Verifique sua internet e tente novamente."
+            };
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Erro ao chamar API de logout: {ex.Message}");
-            // Continua com o logout local mesmo se a API falhar
+            return new LoginResponse
+            {
+                Message = $"Erro inesperado: {ex.Message}"
+            };
         }
-        
-        // Remove o token do localStorage
-        await _localStorage.RemoveItemAsync("authToken");
-        Console.WriteLine("Token removido do localStorage");
-        
-        // Remove o refresh token
-        await _localStorage.RemoveItemAsync("refreshToken");
-        Console.WriteLine("Refresh token removido do localStorage");
-        
-        // Remove informações de expiração
-        await _localStorage.RemoveItemAsync("tokenExpiration");
-        Console.WriteLine("Informações de expiração removidas do localStorage");
-        
-        // Notifica o AuthenticationStateProvider sobre o logout
-        ((CustomAuthenticationStateProvider)_authenticationStateProvider).MarkUserAsLoggedOut();
-        Console.WriteLine("Estado de autenticação atualizado para deslogado");
     }
 
     /// <summary>
-    /// Verifica se o usuário está autenticado
+    /// Renova o access token (POST /identity/refresh).
     /// </summary>
-    /// <returns>True se estiver autenticado</returns>
+    public Task<bool> RefreshTokenAsync(CancellationToken cancellationToken = default)
+        => _tokenRefreshCoordinator.TryRefreshAsync(cancellationToken);
+
+    /// <summary>
+    /// Solicita token de redefinição de senha (POST .../api/identity/forgot-password).
+    /// </summary>
+    public async Task<(bool Success, ForgotPasswordResponse? Data, string Error)> ForgotPasswordAsync(
+        string email,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new ForgotPasswordRequest { Email = email };
+        var response = await _httpClient.PostAsJsonAsync("identity/forgot-password", request, cancellationToken);
+
+        var content = await response.Content.ReadAsStringAsync(cancellationToken);
+        if (!response.IsSuccessStatusCode)
+            return (false, null, await ReadErrorMessageFromContentAsync(response.StatusCode, content, cancellationToken));
+
+        var data = JsonSerializer.Deserialize<ForgotPasswordResponse>(content, JsonOptions);
+        return (true, data, string.Empty);
+    }
+
+    /// <summary>
+    /// Redefine a senha (POST .../api/identity/reset-password). Resposta 204 sem corpo em caso de sucesso.
+    /// </summary>
+    public async Task<(bool Success, string Message)> ResetPasswordAsync(ResetPasswordRequest request, CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.PostAsJsonAsync("identity/reset-password", request, cancellationToken);
+
+        if (response.StatusCode == HttpStatusCode.NoContent)
+            return (true, string.Empty);
+
+        var message = await ReadErrorMessageAsync(response, cancellationToken);
+        return (false, message);
+    }
+
+    /// <summary>
+    /// Perfil do usuário autenticado (GET .../api/identity/me).
+    /// </summary>
+    public async Task<UserProfile?> GetCurrentUserAsync(CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.GetAsync("identity/me", cancellationToken);
+        if (!response.IsSuccessStatusCode)
+            return null;
+
+        var content = await response.Content.ReadAsStringAsync(cancellationToken);
+        return JsonSerializer.Deserialize<UserProfile>(content, JsonOptions);
+    }
+
+    /// <summary>
+    /// Realiza o logout (POST .../api/identity/logout).
+    /// </summary>
+    public async Task LogoutAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var response = await _httpClient.PostAsync("identity/logout", null, cancellationToken);
+
+            if (response.IsSuccessStatusCode || response.StatusCode == HttpStatusCode.NoContent)
+            {
+                // ok
+            }
+        }
+        catch (Exception)
+        {
+            // Continua com o logout local mesmo se a API falhar
+        }
+
+        await _localStorage.RemoveItemAsync("authToken", cancellationToken);
+        await _localStorage.RemoveItemAsync("refreshToken", cancellationToken);
+        await _localStorage.RemoveItemAsync("tokenExpiration", cancellationToken);
+
+        ((CustomAuthenticationStateProvider)_authenticationStateProvider).MarkUserAsLoggedOut();
+    }
+
+    /// <summary>
+    /// Verifica se o usuário está autenticado.
+    /// </summary>
     public async Task<bool> IsAuthenticatedAsync()
     {
-        // Usa o AuthenticationStateProvider para checar autenticação real
         var authState = await _authenticationStateProvider.GetAuthenticationStateAsync();
         return authState.User.Identity != null && authState.User.Identity.IsAuthenticated;
     }
 
     /// <summary>
-    /// Obtém o token atual
+    /// Obtém o token atual.
     /// </summary>
-    /// <returns>Token JWT ou null se não existir</returns>
     public async Task<string?> GetTokenAsync()
     {
         return await _localStorage.GetItemAsync<string>("authToken");
     }
 
     /// <summary>
-    /// Verifica se o token está expirado
+    /// Obtém o refresh token atual.
     /// </summary>
-    /// <param name="token">Token</param>
-    /// <returns>True se expirado</returns>
-    private async Task<bool> IsTokenExpired(string token)
-    {
-        try
-        {
-            // Como não é um JWT válido, verifica pela data salva no localStorage
-            var tokenExpiration = await _localStorage.GetItemAsync<DateTime?>("tokenExpiration");
-            return tokenExpiration.HasValue && tokenExpiration.Value < DateTime.UtcNow;
-        }
-        catch
-        {
-            return true; // Se não conseguir verificar, considera como expirado
-        }
-    }
-
-    /// <summary>
-    /// Obtém o refresh token atual
-    /// </summary>
-    /// <returns>Refresh token ou null se não existir</returns>
     public async Task<string?> GetRefreshTokenAsync()
     {
         return await _localStorage.GetItemAsync<string>("refreshToken");
     }
 
     /// <summary>
-    /// Obtém informações completas do token
+    /// Obtém informações completas do token.
     /// </summary>
-    /// <returns>Informações do token ou null</returns>
     public async Task<TokenInfo?> GetTokenInfoAsync()
     {
         var accessToken = await GetTokenAsync();
@@ -212,103 +231,70 @@ public class AuthService
             AccessToken = accessToken,
             RefreshToken = refreshToken ?? string.Empty,
             TokenType = "Bearer",
-            ExpiresAt = expiration ?? DateTime.UtcNow.AddHours(-1), // Se não há expiração, considera expirado
+            ExpiresAt = expiration ?? DateTime.UtcNow.AddHours(-1),
             ExpiresIn = expiration.HasValue ? (int)(expiration.Value - DateTime.UtcNow).TotalSeconds : 0
         };
     }
 
-    /// <summary>
-    /// Realiza o registro de um novo usuário
-    /// </summary>
-    /// <param name="registerRequest">Dados de registro</param>
-    /// <returns>Resultado do registro</returns>
-    public async Task<RegisterResponse> RegisterAsync(RegisterRequest registerRequest)
+    private async Task StoreTokensAndNotifyAsync(LoginResponse loginResponse, CancellationToken cancellationToken)
     {
+        await TokenRefreshCoordinator.PersistTokensAsync(loginResponse, _localStorage, cancellationToken);
+        await Task.Delay(50, cancellationToken);
+        await ((CustomAuthenticationStateProvider)_authenticationStateProvider).MarkUserAsAuthenticated();
+    }
+
+    private static async Task<string> ReadErrorMessageAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        var content = await response.Content.ReadAsStringAsync(cancellationToken);
+        return await ReadErrorMessageFromContentAsync(response.StatusCode, content, cancellationToken);
+    }
+
+    private static Task<string> ReadErrorMessageFromContentAsync(HttpStatusCode statusCode, string content, CancellationToken _)
+    {
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            return Task.FromResult(statusCode switch
+            {
+                HttpStatusCode.Unauthorized => "Credenciais inválidas.",
+                HttpStatusCode.Conflict => "Este email já está em uso.",
+                HttpStatusCode.BadRequest => "Dados inválidos.",
+                _ => "Ocorreu um erro. Tente novamente."
+            });
+        }
+
         try
         {
-            // Cria o objeto para enviar à API (sem confirmPassword)
-            var requestBody = new
-            {
-                email = registerRequest.Email,
-                password = registerRequest.Password,
-                userFirstName = registerRequest.UserFirstName,
-                userLastName = registerRequest.UserLastName
-            };
+            using var doc = JsonDocument.Parse(content);
+            var root = doc.RootElement;
 
-            var response = await _httpClient.PostAsJsonAsync("/api/account/register", requestBody);
-            
-            if (response.IsSuccessStatusCode)
+            if (root.TryGetProperty("message", out var msgProp))
             {
-                var content = await response.Content.ReadAsStringAsync();
-                string userId = string.Empty;
-                
-                // Verifica se há conteúdo para deserializar
-                if (!string.IsNullOrWhiteSpace(content))
+                var text = msgProp.GetString();
+                if (!string.IsNullOrEmpty(text))
+                    return Task.FromResult(text);
+            }
+
+            if (root.TryGetProperty("errors", out var errorsProp) && errorsProp.ValueKind == JsonValueKind.Array)
+            {
+                var parts = new List<string>();
+                foreach (var e in errorsProp.EnumerateArray())
                 {
-                    try
+                    if (e.ValueKind == JsonValueKind.String)
                     {
-                        // Tenta deserializar como string primeiro
-                        if (content.StartsWith("\"") && content.EndsWith("\""))
-                        {
-                            userId = JsonSerializer.Deserialize<string>(content) ?? string.Empty;
-                        }
-                        else if (content.StartsWith("{") && content.EndsWith("}"))
-                        {
-                            // Tenta como objeto
-                            var responseObj = JsonSerializer.Deserialize<Dictionary<string, object>>(content);
-                            userId = responseObj?.GetValueOrDefault("id")?.ToString() ?? string.Empty;
-                        }
-                        else
-                        {
-                            // Se não é JSON válido, usa o conteúdo diretamente
-                            userId = content.Trim();
-                        }
-                    }
-                    catch (JsonException)
-                    {
-                        // Se falhar a deserialização, usa o conteúdo como string
-                        userId = content.Trim();
+                        var s = e.GetString();
+                        if (!string.IsNullOrEmpty(s))
+                            parts.Add(s);
                     }
                 }
+                if (parts.Count > 0)
+                    return Task.FromResult(string.Join(" ", parts));
+            }
+        }
+        catch (JsonException)
+        {
+            // conteúdo não JSON
+        }
 
-                return new RegisterResponse
-                {
-                    Success = true,
-                    Message = "Usuário registrado com sucesso!",
-                    UserId = userId
-                };
-            }
-            else
-            {
-                var errorContent = await response.Content.ReadAsStringAsync();
-                return new RegisterResponse
-                {
-                    Success = false,
-                    Message = response.StatusCode switch
-                    {
-                        System.Net.HttpStatusCode.BadRequest => "Dados inválidos fornecidos",
-                        System.Net.HttpStatusCode.Conflict => "Este email já está em uso",
-                        System.Net.HttpStatusCode.UnprocessableEntity => "Dados não puderam ser processados",
-                        _ => !string.IsNullOrEmpty(errorContent) ? errorContent : "Erro ao registrar usuário"
-                    }
-                };
-            }
-        }
-        catch (HttpRequestException)
-        {
-            return new RegisterResponse
-            {
-                Success = false,
-                Message = "Erro de conexão. Verifique sua internet e tente novamente."
-            };
-        }
-        catch (Exception ex)
-        {
-            return new RegisterResponse
-            {
-                Success = false,
-                Message = $"Erro inesperado: {ex.Message}"
-            };
-        }
+        return Task.FromResult(content);
     }
 }

@@ -45,9 +45,9 @@ public class ConfigurationService(HttpClient httpClient)
             ApiSettings = new ApiSettings
             {
             BaseUrl = isDevelopment
-                ? "http://localhost:5223" // URL de desenvolvimento
+                ? "http://localhost:5003/api" // URL de desenvolvimento
                 : "https://api.moneyfix.com.br", // URL de produção
-            LoginEndpoint = "/api/login",
+            LoginEndpoint = "/identity/login",
             Timeout = 30
             },
             Authentication = new AuthenticationSettings

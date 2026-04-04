@@ -1,0 +1,29 @@
+---
+description: Convenções da camada Models (DTOs, requests, responses)
+globs: Models/*.cs
+alwaysApply: false
+---
+
+# Camada Models
+
+- **Namespace**: `MoneyFixClient.Models` (file-scoped ou bloco `namespace MoneyFixClient.Models { }` — manter consistência com o arquivo existente).
+- **Strings**: propriedades `string` com default `string.Empty`; `decimal` com valores default explícitos quando fizer sentido (ex.: `0.00M`).
+- **Documentação**: XML `<summary>` em português em classes e propriedades públicas quando o arquivo já usa esse padrão.
+
+## Requests (formulários / API)
+
+- Usar **DataAnnotations**: `[Required]`, `[StringLength]`, `[Range]`, `[EmailAddress]`, `[Compare]` com mensagens em português.
+- Enums relacionados podem ficar no mesmo arquivo do request (ex.: `TransactionType` em `TransactionRequest.cs`).
+
+## Responses de operação (criação / atualização)
+
+- Padrão comum: `Id` (`string`), `Message` (`string`), e `Success` derivado de `!string.IsNullOrEmpty(Id)` quando aplicável.
+
+## Serialização JSON
+
+- Usar `[JsonPropertyName("camelCase")]` **apenas** quando o contrato da API difere do nome C# (ex.: `Pagination` com `currentPage`, `itemsPerPage`).
+
+## Organização de arquivos
+
+- Um arquivo pode conter **várias** classes relacionadas (ex.: `TransactionResponse` + `Transaction` em `Transaction.cs`).
+- Tipos de paginação: `PaginatedResult<T>` + `Pagination` conforme uso em serviços e listagens.

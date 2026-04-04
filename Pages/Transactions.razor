@@ -49,6 +49,22 @@
                     </h5>
                 </div>
                 <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <label class="me-2">Itens por página:</label>
+                            <select class="form-select d-inline-block w-auto me-3" value="@pageSize" @onchange="OnPageSizeChanged">
+                                @foreach (var opt in pageSizeOptions)
+                                {
+                                    <option value="@opt">@opt</option>
+                                }
+                            </select>
+                            <span class="text-muted">Total: @totalItems</span>
+                        </div>
+                        <div>
+                            <small class="text-muted">Página @currentPage de @totalPages</small>
+                        </div>
+                    </div>
+
                     @if (isLoading)
                     {
                         <div class="text-center py-4">
@@ -107,6 +123,27 @@
                                     }
                                 </tbody>
                             </table>
+
+                            @if (totalPages > 1)
+                            {
+                                <nav>
+                                    <ul class="pagination justify-content-center mb-0">
+                                        <li class="page-item @(currentPage == 1 ? "disabled" : "")">
+                                            <button class="page-link" @onclick="() => ChangePage(currentPage - 1)">Anterior</button>
+                                        </li>
+                                        @for (int i = 1; i <= totalPages; i++)
+                                        {
+                                            <li class="page-item @(currentPage == i ? "active" : "")">
+                                                <button class="page-link" @onclick="() => ChangePage(i)">@i</button>
+                                            </li>
+                                        }
+                                        <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
+                                            <button class="page-link" @onclick="() => ChangePage(currentPage + 1)">Próximo</button>
+                                        </li>
+                                    </ul>
+                                </nav>
+                            }
+
                         </div>
                     }
                     else
@@ -273,6 +310,13 @@
     private Transaction? editingTransaction = null;
     private Transaction? transactionToDelete = null;
     
+    // Paginação
+    private int currentPage = 1;
+    private int pageSize = 10;
+    private int totalPages = 1;
+    private int totalItems = 0;
+    private int[] pageSizeOptions = new[] { 5, 10, 20, 50 };
+
     private bool isLoading = true;
     private bool isSaving = false;
     private bool isDeleting = false;
@@ -284,24 +328,41 @@
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadData();
+        await LoadData(currentPage, pageSize);
     }
 
-    private async Task LoadData()
+    private async Task LoadData(int pageNumber = 1, int pageSizeParam = 10)
     {
         isLoading = true;
         StateHasChanged();
 
         try
         {
-            // Carrega transações e categorias em paralelo
-            var transactionsTask = TransactionService.GetTransactionsAsync();
+            currentPage = pageNumber;
+            pageSize = pageSizeParam;
+
+            var transactionsTask = TransactionService.GetTransactionsAsync(currentPage, pageSize);
             var categoriesTask = CategoryService.GetCategoriesAsync();
 
             await Task.WhenAll(transactionsTask, categoriesTask);
 
-            transactions = await transactionsTask;
+            var txResult = await transactionsTask;
+            transactions = txResult.Items;
             categories = await categoriesTask;
+
+            if (txResult.Pagination != null)
+            {
+                totalItems = txResult.Pagination.TotalItems;
+                totalPages = txResult.Pagination.TotalPages;
+                currentPage = txResult.Pagination.CurrentPage;
+                pageSize = txResult.Pagination.ItemsPerPage;
+            }
+            else
+            {
+                // fallback quando servidor não retornar header
+                totalItems = transactions.Count;
+                totalPages = (int)Math.Ceiling((double)totalItems / pageSize);
+            }
         }
         catch (Exception ex)
         {
@@ -375,7 +436,7 @@
             {
                 ShowAlert(result.Message, "success");
                 HideTransactionModal();
-                await LoadData(); // Recarrega a lista
+                await LoadData(currentPage, pageSize); // Recarrega a página atual
             }
             else
             {
@@ -422,7 +483,13 @@
             {
                 ShowAlert(result.Message, "success");
                 HideDeleteModal();
-                await LoadData(); // Recarrega a lista
+                await LoadData(currentPage, pageSize); // Recarrega a página atual
+
+                // Se a exclusão deixou a página vazia, tenta carregar a última página disponível
+                if (!transactions.Any() && totalPages > 0 && currentPage > totalPages)
+                {
+                    await LoadData(totalPages, pageSize);
+                }
             }
             else
             {
@@ -461,5 +528,29 @@
     {
         alertMessage = string.Empty;
         alertType = string.Empty;
+    }
+
+    private async Task ChangePage(int page)
+    {
+        if (page < 1) page = 1;
+        if (page > totalPages) page = totalPages;
+        if (page == currentPage) return;
+
+        await LoadData(page, pageSize);
+    }
+
+    private async Task OnPageSizeChanged(ChangeEventArgs e)
+    {
+        // Lê explicitamente o novo valor do evento para evitar problemas de ordem do bind
+        if (e?.Value != null && int.TryParse(e.Value.ToString(), out var newSize))
+        {
+            pageSize = newSize;
+        }
+
+        Console.WriteLine($"Transactions.razor: pageSize alterado para {pageSize}, recarregando página 1");
+
+        // sempre volta para a primeira página ao alterar tamanho
+        currentPage = 1;
+        await LoadData(currentPage, pageSize);
     }
 }

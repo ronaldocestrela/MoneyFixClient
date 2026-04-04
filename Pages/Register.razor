@@ -6,7 +6,6 @@
 @using MoneyFixClient.Services
 @inject AuthService AuthService
 @inject NavigationManager Navigation
-@inject IJSRuntime JSRuntime
 
 <PageTitle>Registro - MoneyFix</PageTitle>
 
@@ -33,37 +32,25 @@
                     <EditForm Model="@registerModel" OnValidSubmit="@HandleRegister" class="needs-validation" novalidate>
                         <DataAnnotationsValidator />
 
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label for="firstName" class="form-label">
-                                    <i class="fas fa-user me-2"></i>Primeiro Nome
-                                </label>
-                                <InputText @bind-Value="registerModel.UserFirstName" 
-                                           class="form-control" 
-                                           id="firstName" 
-                                           placeholder="Ex: João" />
-                                <ValidationMessage For="@(() => registerModel.UserFirstName)" class="text-danger" />
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="lastName" class="form-label">
-                                    <i class="fas fa-user me-2"></i>Último Nome
-                                </label>
-                                <InputText @bind-Value="registerModel.UserLastName" 
-                                           class="form-control" 
-                                           id="lastName" 
-                                           placeholder="Ex: Silva" />
-                                <ValidationMessage For="@(() => registerModel.UserLastName)" class="text-danger" />
-                            </div>
+                        <div class="mb-3">
+                            <label for="fullName" class="form-label">
+                                <i class="fas fa-user me-2"></i>Nome completo
+                            </label>
+                            <InputText @bind-Value="registerModel.FullName"
+                                       class="form-control"
+                                       id="fullName"
+                                       placeholder="Ex: João Silva" />
+                            <ValidationMessage For="@(() => registerModel.FullName)" class="text-danger" />
                         </div>
 
                         <div class="mb-3">
                             <label for="email" class="form-label">
                                 <i class="fas fa-envelope me-2"></i>Email
                             </label>
-                            <InputText @bind-Value="registerModel.Email" 
-                                       type="email" 
-                                       class="form-control" 
-                                       id="email" 
+                            <InputText @bind-Value="registerModel.Email"
+                                       type="email"
+                                       class="form-control"
+                                       id="email"
                                        placeholder="seu@email.com" />
                             <ValidationMessage For="@(() => registerModel.Email)" class="text-danger" />
                         </div>
@@ -73,10 +60,10 @@
                                 <i class="fas fa-lock me-2"></i>Senha
                             </label>
                             <div class="input-group">
-                                <InputText @bind-Value="registerModel.Password" 
-                                           type="@(showPassword ? "text" : "password")" 
-                                           class="form-control" 
-                                           id="password" 
+                                <InputText @bind-Value="registerModel.Password"
+                                           type="@(showPassword ? "text" : "password")"
+                                           class="form-control"
+                                           id="password"
                                            placeholder="Sua senha" />
                                 <button class="btn btn-outline-secondary" type="button" @onclick="TogglePasswordVisibility">
                                     <i class="fas @(showPassword ? "fa-eye-slash" : "fa-eye")"></i>
@@ -84,7 +71,7 @@
                             </div>
                             <ValidationMessage For="@(() => registerModel.Password)" class="text-danger" />
                             <div class="form-text">
-                                <small>Mínimo 6 caracteres. Recomendamos usar letras, números e símbolos.</small>
+                                <small>Mínimo 8 caracteres, com maiúscula, minúscula, número e caractere especial.</small>
                             </div>
                         </div>
 
@@ -93,10 +80,10 @@
                                 <i class="fas fa-lock me-2"></i>Confirmar Senha
                             </label>
                             <div class="input-group">
-                                <InputText @bind-Value="registerModel.ConfirmPassword" 
-                                           type="@(showConfirmPassword ? "text" : "password")" 
-                                           class="form-control" 
-                                           id="confirmPassword" 
+                                <InputText @bind-Value="registerModel.ConfirmPassword"
+                                           type="@(showConfirmPassword ? "text" : "password")"
+                                           class="form-control"
+                                           id="confirmPassword"
                                            placeholder="Confirme sua senha" />
                                 <button class="btn btn-outline-secondary" type="button" @onclick="ToggleConfirmPasswordVisibility">
                                     <i class="fas @(showConfirmPassword ? "fa-eye-slash" : "fa-eye")"></i>
@@ -161,7 +148,7 @@
 
         isLoading = true;
         ClearAlert();
-        StateHasChanged();
+        await InvokeAsync(StateHasChanged);
 
         try
         {
@@ -169,15 +156,13 @@
 
             if (result.Success)
             {
-                ShowAlert("Conta criada com sucesso! Você será redirecionado para o login.", "success");
-                
-                // Aguarda 2 segundos e redireciona para o login
-                await Task.Delay(2000);
-                Navigation.NavigateTo("/login");
+                ShowAlert("Conta criada! Redirecionando...", "success");
+                await Task.Delay(300);
+                Navigation.NavigateTo("/dashboard");
             }
             else
             {
-                ShowAlert(result.Message, "error");
+                ShowAlert(string.IsNullOrWhiteSpace(result.Message) ? "Não foi possível criar a conta." : result.Message, "error");
             }
         }
         catch (Exception ex)
@@ -187,7 +172,7 @@
         finally
         {
             isLoading = false;
-            StateHasChanged();
+            await InvokeAsync(StateHasChanged);
         }
     }
 
@@ -197,12 +182,12 @@
         alertType = type;
         StateHasChanged();
 
-        // Auto-hide alert após 5 segundos (exceto sucesso que redireciona)
         if (type != "success")
         {
-            Task.Delay(5000).ContinueWith(_ => 
+            _ = Task.Run(async () =>
             {
-                InvokeAsync(() => 
+                await Task.Delay(5000);
+                await InvokeAsync(() =>
                 {
                     ClearAlert();
                     StateHasChanged();
