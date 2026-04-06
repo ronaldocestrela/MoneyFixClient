@@ -25,7 +25,6 @@ Content-Type: application/json
 {
   "accountId": "550e8400-e29b-41d4-a716-446655440000",
   "categoryId": "660f9511-f40c-52e5-b827-557766551111",
-  "type": "Saida",
   "amount": 125.50,
   "occurredAt": "2026-04-01T14:30:00Z",
   "description": "Grocery shopping at supermarket"
@@ -35,10 +34,12 @@ Content-Type: application/json
 **Parameters:**
 - `accountId` (GUID, required): Target account
 - `categoryId` (GUID, required): Transaction category
-- `type` (string, required): `Entrada` (income) or `Saida` (expense)
 - `amount` (decimal, required): Transaction amount (> 0)
 - `occurredAt` (datetime, required): When the transaction occurred
 - `description` (string, optional): Transaction notes (max 500 characters)
+
+**Notes:**
+- `type` is automatically derived from the selected category and must not be provided in the request.
 
 ### Response - Success (201 Created)
 
@@ -209,7 +210,6 @@ Content-Type: application/json
 {
   "accountId": "550e8400-e29b-41d4-a716-446655440000",
   "categoryId": "660f9511-f40c-52e5-b827-557766551111",
-  "type": "Saida",
   "amount": 135.75,
   "occurredAt": "2026-04-01T14:30:00Z",
   "description": "Grocery shopping - updated amount"
@@ -306,7 +306,7 @@ Current Balance = Initial Balance + Sum(Entrada transactions) - Sum(Saida transa
 ### Data Validation
 - Amount must be positive (> 0)
 - Categories and accounts must belong to the authenticated user
-- Both category and account types must match the transaction type
+- The transaction type is derived from the selected category type and cannot be provided explicitly in the request.
 - DateTime must be in ISO 8601 format (UTC)
 - Description is optional but limited to 500 characters
 

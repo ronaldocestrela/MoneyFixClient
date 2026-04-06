@@ -34,6 +34,7 @@ public class WalletService(HttpClient httpClient)
                 {
                     return new CreateCategoryResponse
                     {
+                        Success = true,
                         Id = walletId,
                         Message = "Carteira criada com sucesso!"
                     };

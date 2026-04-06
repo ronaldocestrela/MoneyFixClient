@@ -1,51 +1,32 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace MoneyFixClient.Models;
 
 /// <summary>
-/// Enum para tipos de transação
-/// </summary>
-public enum TransactionType
-{
-    Expense = 1,    // Despesa
-    Income = 2      // Receita
-}
-
-/// <summary>
-/// Modelo para solicitação de criação/atualização de transação
+/// Corpo JSON para criação/atualização de transação (POST/PUT /api/transactions).
+/// O tipo é derivado da categoria na API; não enviar campo type.
 /// </summary>
 public class TransactionRequest
 {
-    /// <summary>
-    /// Descrição da transação
-    /// </summary>
-    [Required(ErrorMessage = "Descrição é obrigatória")]
-    [StringLength(200, MinimumLength = 3, ErrorMessage = "Descrição deve ter entre 3 e 200 caracteres")]
-    public string TransactionDescription { get; set; } = string.Empty;
+    [Required(ErrorMessage = "Conta é obrigatória")]
+    [JsonPropertyName("accountId")]
+    public string AccountId { get; set; } = string.Empty;
 
-    /// <summary>
-    /// Valor da transação
-    /// </summary>
-    [Required(ErrorMessage = "Valor é obrigatório")]
-    [Range(0.01, 999999.99, ErrorMessage = "Valor deve ser maior que zero")]
-    public decimal TransactionAmount { get; set; }
-
-    /// <summary>
-    /// Data da transação
-    /// </summary>
-    [Required(ErrorMessage = "Data é obrigatória")]
-    public DateTime TransactionDate { get; set; } = DateTime.Now;
-
-    /// <summary>
-    /// Tipo da transação (1 = Despesa, 0 = Receita)
-    /// </summary>
-    [Required(ErrorMessage = "Tipo de transação é obrigatório")]
-    [Range(0, 1, ErrorMessage = "Tipo deve ser 0 (Despesa) ou 1 (Receita)")]
-    public int TransactionsType { get; set; } = 1;
-
-    /// <summary>
-    /// ID da categoria da transação
-    /// </summary>
     [Required(ErrorMessage = "Categoria é obrigatória")]
-    public string TransactionCategoryId { get; set; } = string.Empty;
+    [JsonPropertyName("categoryId")]
+    public string CategoryId { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Valor é obrigatório")]
+    [Range(0.01, 999999999.99, ErrorMessage = "Valor deve ser maior que zero")]
+    [JsonPropertyName("amount")]
+    public decimal Amount { get; set; }
+
+    [Required(ErrorMessage = "Data é obrigatória")]
+    [JsonPropertyName("occurredAt")]
+    public DateTime OccurredAt { get; set; } = DateTime.Now;
+
+    [StringLength(500, ErrorMessage = "Descrição deve ter no máximo 500 caracteres")]
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
 }

@@ -24,6 +24,7 @@ builder.Services.AddScoped<CategoryService>();
 builder.Services.AddScoped<TransactionService>();
 builder.Services.AddScoped<AuthHeaderHandler>();
 builder.Services.AddScoped<WalletService>();
+builder.Services.AddScoped<AccountService>();
 
 // Configuração do HttpClient com AuthHeaderHandler
 var apiBaseUrl = ApiBaseUrlResolver.Resolve(builder.Configuration);

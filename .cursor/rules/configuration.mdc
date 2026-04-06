@@ -14,7 +14,7 @@ alwaysApply: false
 1. `AddBlazoredLocalStorage()`
 2. `AddAuthorizationCore()`
 3. `AddScoped<AuthenticationStateProvider, CustomAuthenticationStateProvider>()`
-4. Serviços de domínio: `TokenRefreshCoordinator`, `AuthService`, `CategoryService`, `TransactionService`, `WalletService`, `AuthHeaderHandler` — todos **`Scoped`**
+4. Serviços de domínio: `TokenRefreshCoordinator`, `AuthService`, `CategoryService`, `TransactionService`, `WalletService`, `AccountService`, `AuthHeaderHandler` — todos **`Scoped`**
 5. Fábrica do **`HttpClient`** com `AuthHeaderHandler` como `DelegatingHandler` e `InnerHandler = new HttpClientHandler()`
 6. **`BaseAddress`**: `new Uri(ApiBaseUrlResolver.Resolve(builder.Configuration))` (fallback `http://localhost:5000` em `ApiBaseUrlResolver`)
 

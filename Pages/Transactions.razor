@@ -5,7 +5,7 @@
 @using Microsoft.AspNetCore.Authorization
 @inject TransactionService TransactionService
 @inject CategoryService CategoryService
-@inject IJSRuntime JSRuntime
+@inject AccountService AccountService
 @attribute [Authorize]
 
 <PageTitle>Transações - MoneyFix</PageTitle>
@@ -38,6 +38,61 @@
             </div>
         </div>
     }
+
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header py-2">
+                    <h6 class="mb-0"><i class="fas fa-filter me-2"></i>Filtros</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-2">
+                            <label class="form-label small mb-0">De</label>
+                            <InputDate TValue="DateTime?" @bind-Value="filterFrom" class="form-control" />
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small mb-0">Até</label>
+                            <InputDate TValue="DateTime?" @bind-Value="filterTo" class="form-control" />
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small mb-0">Tipo</label>
+                            <select class="form-select" @bind="filterType">
+                                <option value="">Todos</option>
+                                <option value="Entrada">Entrada</option>
+                                <option value="Saida">Saída</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small mb-0">Categoria</label>
+                            <select class="form-select" @bind="filterCategoryId">
+                                <option value="">Todas</option>
+                                @foreach (var c in categories.OrderBy(x => x.Name))
+                                {
+                                    <option value="@c.Id">@c.Name</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small mb-0">Conta</label>
+                            <select class="form-select" @bind="filterAccountId">
+                                <option value="">Todas</option>
+                                @foreach (var a in accounts.OrderBy(x => x.Name))
+                                {
+                                    <option value="@a.Id">@a.Name</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="button" class="btn btn-outline-primary w-100" @onclick="ApplyFiltersAsync" disabled="@isLoading">
+                                <i class="fas fa-search me-1"></i>Aplicar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <div class="row">
         <div class="col-12">
@@ -84,30 +139,32 @@
                                         <th>Valor</th>
                                         <th>Data</th>
                                         <th>Tipo</th>
+                                        <th>Conta</th>
                                         <th>Categoria</th>
                                         <th>Ações</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @foreach (var transaction in transactions.OrderByDescending(t => t.TransactionDate))
+                                    @foreach (var transaction in transactions)
                                     {
                                         <tr>
                                             <td>
-                                                <strong>@transaction.TransactionDescription</strong>
+                                                <strong>@(string.IsNullOrWhiteSpace(transaction.Description) ? "—" : transaction.Description)</strong>
                                                 <br>
-                                                <small class="text-muted">ID: @transaction.Id[..8]...</small>
+                                                <small class="text-muted">ID: @(transaction.Id.Length > 8 ? transaction.Id[..8] + "..." : transaction.Id)</small>
                                             </td>
                                             <td>
                                                 <span class="@(transaction.IsExpense ? "text-danger" : "text-success")">
-                                                    @(transaction.IsExpense ? "-" : "+")@transaction.TransactionAmount.ToString("C")
+                                                    @(transaction.IsExpense ? "-" : "+")@transaction.Amount.ToString("C")
                                                 </span>
                                             </td>
-                                            <td>@transaction.TransactionDate.ToString("dd/MM/yyyy HH:mm")</td>
+                                            <td>@transaction.OccurredAt.ToString("dd/MM/yyyy HH:mm")</td>
                                             <td>
                                                 <span class="badge @(transaction.IsExpense ? "bg-danger" : "bg-success")">
-                                                    @(transaction.IsExpense ? "Despesa" : "Receita")
+                                                    @(transaction.IsExpense ? "Saída" : "Entrada")
                                                 </span>
                                             </td>
+                                            <td>@(string.IsNullOrWhiteSpace(transaction.AccountName) ? "—" : transaction.AccountName)</td>
                                             <td>@transaction.CategoryName</td>
                                             <td>
                                                 <div class="btn-group" role="group">
@@ -151,7 +208,7 @@
                         <div class="text-center py-5">
                             <i class="fas fa-exchange-alt fa-3x text-muted mb-3"></i>
                             <h5 class="text-muted">Nenhuma transação encontrada</h5>
-                            <p class="text-muted">Crie sua primeira transação para começar a controlar suas finanças.</p>
+                            <p class="text-muted">Crie sua primeira transação ou ajuste os filtros.</p>
                             <button class="btn btn-primary" @onclick="ShowCreateModal">
                                 <i class="fas fa-plus me-2"></i>
                                 Criar Primeira Transação
@@ -179,56 +236,59 @@
                 <DataAnnotationsValidator />
                 <div class="modal-body">
                     <div class="row">
-                        <div class="col-md-12 mb-3">
-                            <label for="description" class="form-label">Descrição</label>
-                            <InputText @bind-Value="transactionForm.TransactionDescription" 
-                                     class="form-control" 
-                                     id="description" 
-                                     placeholder="Ex: Almoço no restaurante, Salário, Gasolina..." />
-                            <ValidationMessage For="@(() => transactionForm.TransactionDescription)" class="text-danger" />
+                        <div class="col-md-6 mb-3">
+                            <label for="account" class="form-label">Conta</label>
+                            <InputSelect @bind-Value="transactionForm.AccountId" class="form-select" id="account">
+                                <option value="">Selecione uma conta</option>
+                                @foreach (var a in accounts.OrderBy(x => x.Name))
+                                {
+                                    <option value="@a.Id">@a.Name</option>
+                                }
+                            </InputSelect>
+                            <ValidationMessage For="@(() => transactionForm.AccountId)" class="text-danger" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="category" class="form-label">Categoria</label>
+                            <InputSelect @bind-Value="transactionForm.CategoryId" class="form-select" id="category">
+                                <option value="">Selecione uma categoria</option>
+                                <optgroup label="Entrada">
+                                    @foreach (var category in categories.Where(c => c.Type == CategoryType.Entrada).OrderBy(c => c.Name))
+                                    {
+                                        <option value="@category.Id">@category.Name</option>
+                                    }
+                                </optgroup>
+                                <optgroup label="Saída">
+                                    @foreach (var category in categories.Where(c => c.Type == CategoryType.Saida).OrderBy(c => c.Name))
+                                    {
+                                        <option value="@category.Id">@category.Name</option>
+                                    }
+                                </optgroup>
+                            </InputSelect>
+                            <ValidationMessage For="@(() => transactionForm.CategoryId)" class="text-danger" />
+                            <small class="text-muted">O tipo da transação (Entrada/Saída) vem da categoria.</small>
                         </div>
                     </div>
-                    
+
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <label for="description" class="form-label">Descrição <span class="text-muted">(opcional)</span></label>
+                            <InputText @bind-Value="descriptionBind" class="form-control" id="description" maxlength="500"
+                                       placeholder="Ex.: Almoço, Salário, Gasolina..." />
+                            <ValidationMessage For="@(() => transactionForm.Description)" class="text-danger" />
+                        </div>
+                    </div>
+
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label for="amount" class="form-label">Valor</label>
-                            <InputNumber @bind-Value="transactionForm.TransactionAmount" 
-                                       class="form-control" 
-                                       id="amount" 
-                                       step="0.01"
-                                       placeholder="0,00" />
-                            <ValidationMessage For="@(() => transactionForm.TransactionAmount)" class="text-danger" />
+                            <InputNumber @bind-Value="transactionForm.Amount" class="form-control" id="amount" step="0.01" placeholder="0,00" />
+                            <ValidationMessage For="@(() => transactionForm.Amount)" class="text-danger" />
                         </div>
-                        
+
                         <div class="col-md-6 mb-3">
-                            <label for="date" class="form-label">Data</label>
-                            <InputDate @bind-Value="transactionForm.TransactionDate" 
-                                     class="form-control" 
-                                     id="date" />
-                            <ValidationMessage For="@(() => transactionForm.TransactionDate)" class="text-danger" />
-                        </div>
-                    </div>
-                    
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="type" class="form-label">Tipo</label>
-                            <InputSelect @bind-Value="transactionForm.TransactionsType" class="form-select" id="type">
-                                <option value="1">Despesa</option>
-                                <option value="0">Receita</option>
-                            </InputSelect>
-                            <ValidationMessage For="@(() => transactionForm.TransactionsType)" class="text-danger" />
-                        </div>
-                        
-                        <div class="col-md-6 mb-3">
-                            <label for="category" class="form-label">Categoria</label>
-                            <InputSelect @bind-Value="transactionForm.TransactionCategoryId" class="form-select" id="category">
-                                <option value="">Selecione uma categoria</option>
-                                @foreach (var category in categories)
-                                {
-                                    <option value="@category.Id">@category.Name</option>
-                                }
-                            </InputSelect>
-                            <ValidationMessage For="@(() => transactionForm.TransactionCategoryId)" class="text-danger" />
+                            <label for="date" class="form-label">Data e hora</label>
+                            <input type="datetime-local" class="form-control" id="date" @bind="transactionForm.OccurredAt" @bind:event="oninput" />
+                            <ValidationMessage For="@(() => transactionForm.OccurredAt)" class="text-danger" />
                         </div>
                     </div>
                 </div>
@@ -271,9 +331,9 @@
                 {
                     <p>Tem certeza que deseja excluir a transação:</p>
                     <div class="alert alert-warning">
-                        <strong>@transactionToDelete.TransactionDescription</strong><br>
-                        Valor: <strong>@transactionToDelete.TransactionAmount.ToString("C")</strong><br>
-                        Data: <strong>@transactionToDelete.TransactionDate.ToString("dd/MM/yyyy")</strong>
+                        <strong>@(string.IsNullOrWhiteSpace(transactionToDelete.Description) ? "(sem descrição)" : transactionToDelete.Description)</strong><br>
+                        Valor: <strong>@transactionToDelete.Amount.ToString("C")</strong><br>
+                        Data: <strong>@transactionToDelete.OccurredAt.ToString("dd/MM/yyyy")</strong>
                     </div>
                     <p class="text-danger">
                         <i class="fas fa-exclamation-triangle me-2"></i>
@@ -304,13 +364,20 @@
 </div>
 
 @code {
+    private List<Transaction> allTransactions = new();
     private List<Transaction> transactions = new();
     private List<Category> categories = new();
+    private List<Account> accounts = new();
     private TransactionRequest transactionForm = new();
     private Transaction? editingTransaction = null;
     private Transaction? transactionToDelete = null;
-    
-    // Paginação
+
+    private DateTime? filterFrom;
+    private DateTime? filterTo;
+    private string filterType = "";
+    private string filterCategoryId = "";
+    private string filterAccountId = "";
+
     private int currentPage = 1;
     private int pageSize = 10;
     private int totalPages = 1;
@@ -322,47 +389,57 @@
     private bool isDeleting = false;
     private bool showTransactionModal = false;
     private bool showDeleteModal = false;
-    
+
     private string alertMessage = string.Empty;
     private string alertType = string.Empty;
 
-    protected override async Task OnInitializedAsync()
+    /// <summary>
+    /// Liga descrição opcional ao formulário (string vazia vira null para a API).
+    /// </summary>
+    private string descriptionBind
     {
-        await LoadData(currentPage, pageSize);
+        get => transactionForm.Description ?? string.Empty;
+        set => transactionForm.Description = string.IsNullOrWhiteSpace(value) ? null : value;
     }
 
-    private async Task LoadData(int pageNumber = 1, int pageSizeParam = 10)
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task ApplyFiltersAsync()
+    {
+        currentPage = 1;
+        await LoadData();
+    }
+
+    private async Task LoadData()
     {
         isLoading = true;
         StateHasChanged();
 
         try
         {
-            currentPage = pageNumber;
-            pageSize = pageSizeParam;
+            var filter = new TransactionFilter
+            {
+                From = filterFrom,
+                To = filterTo,
+                Type = string.IsNullOrWhiteSpace(filterType) ? null : filterType,
+                CategoryId = string.IsNullOrWhiteSpace(filterCategoryId) ? null : filterCategoryId,
+                AccountId = string.IsNullOrWhiteSpace(filterAccountId) ? null : filterAccountId
+            };
 
-            var transactionsTask = TransactionService.GetTransactionsAsync(currentPage, pageSize);
+            var transactionsTask = TransactionService.GetTransactionsAsync(filter);
             var categoriesTask = CategoryService.GetCategoriesAsync();
+            var accountsTask = AccountService.GetAccountsAsync();
 
-            await Task.WhenAll(transactionsTask, categoriesTask);
+            await Task.WhenAll(transactionsTask, categoriesTask, accountsTask);
 
-            var txResult = await transactionsTask;
-            transactions = txResult.Items;
+            allTransactions = await transactionsTask;
             categories = await categoriesTask;
+            accounts = await accountsTask;
 
-            if (txResult.Pagination != null)
-            {
-                totalItems = txResult.Pagination.TotalItems;
-                totalPages = txResult.Pagination.TotalPages;
-                currentPage = txResult.Pagination.CurrentPage;
-                pageSize = txResult.Pagination.ItemsPerPage;
-            }
-            else
-            {
-                // fallback quando servidor não retornar header
-                totalItems = transactions.Count;
-                totalPages = (int)Math.Ceiling((double)totalItems / pageSize);
-            }
+            ApplyClientPaging();
         }
         catch (Exception ex)
         {
@@ -375,13 +452,26 @@
         }
     }
 
+    private void ApplyClientPaging()
+    {
+        var ordered = allTransactions.OrderByDescending(t => t.OccurredAt).ToList();
+        totalItems = ordered.Count;
+        totalPages = Math.Max(1, (int)Math.Ceiling(totalItems / (double)pageSize));
+        if (currentPage > totalPages)
+            currentPage = totalPages;
+        if (currentPage < 1)
+            currentPage = 1;
+
+        transactions = ordered.Skip((currentPage - 1) * pageSize).Take(pageSize).ToList();
+    }
+
     private void ShowCreateModal()
     {
         editingTransaction = null;
         transactionForm = new TransactionRequest
         {
-            TransactionDate = DateTime.Now,
-            TransactionsType = 1 // Despesa por padrão
+            OccurredAt = DateTime.Now,
+            AccountId = accounts.FirstOrDefault()?.Id ?? string.Empty
         };
         showTransactionModal = true;
         StateHasChanged();
@@ -392,11 +482,11 @@
         editingTransaction = transaction;
         transactionForm = new TransactionRequest
         {
-            TransactionDescription = transaction.TransactionDescription,
-            TransactionAmount = transaction.TransactionAmount,
-            TransactionDate = transaction.TransactionDate,
-            TransactionsType = transaction.TransactionsType,
-            TransactionCategoryId = transaction.TransactionCategoryId
+            AccountId = transaction.AccountId,
+            CategoryId = transaction.CategoryId,
+            Amount = transaction.Amount,
+            OccurredAt = transaction.OccurredAt,
+            Description = string.IsNullOrWhiteSpace(transaction.Description) ? null : transaction.Description
         };
         showTransactionModal = true;
         StateHasChanged();
@@ -423,12 +513,10 @@
 
             if (editingTransaction != null)
             {
-                // Atualizar transação existente
                 result = await TransactionService.UpdateTransactionAsync(editingTransaction.Id, transactionForm);
             }
             else
             {
-                // Criar nova transação
                 result = await TransactionService.CreateTransactionAsync(transactionForm);
             }
 
@@ -436,7 +524,7 @@
             {
                 ShowAlert(result.Message, "success");
                 HideTransactionModal();
-                await LoadData(currentPage, pageSize); // Recarrega a página atual
+                await LoadData();
             }
             else
             {
@@ -483,12 +571,13 @@
             {
                 ShowAlert(result.Message, "success");
                 HideDeleteModal();
-                await LoadData(currentPage, pageSize); // Recarrega a página atual
+                await LoadData();
 
-                // Se a exclusão deixou a página vazia, tenta carregar a última página disponível
                 if (!transactions.Any() && totalPages > 0 && currentPage > totalPages)
                 {
-                    await LoadData(totalPages, pageSize);
+                    currentPage = totalPages;
+                    ApplyClientPaging();
+                    StateHasChanged();
                 }
             }
             else
@@ -513,10 +602,9 @@
         alertType = type;
         StateHasChanged();
 
-        // Auto-hide alert after 5 seconds
-        Task.Delay(5000).ContinueWith(_ => 
+        Task.Delay(5000).ContinueWith(_ =>
         {
-            InvokeAsync(() => 
+            InvokeAsync(() =>
             {
                 ClearAlert();
                 StateHasChanged();
@@ -536,21 +624,22 @@
         if (page > totalPages) page = totalPages;
         if (page == currentPage) return;
 
-        await LoadData(page, pageSize);
+        currentPage = page;
+        ApplyClientPaging();
+        StateHasChanged();
+        await Task.CompletedTask;
     }
 
     private async Task OnPageSizeChanged(ChangeEventArgs e)
     {
-        // Lê explicitamente o novo valor do evento para evitar problemas de ordem do bind
         if (e?.Value != null && int.TryParse(e.Value.ToString(), out var newSize))
         {
             pageSize = newSize;
         }
 
-        Console.WriteLine($"Transactions.razor: pageSize alterado para {pageSize}, recarregando página 1");
-
-        // sempre volta para a primeira página ao alterar tamanho
         currentPage = 1;
-        await LoadData(currentPage, pageSize);
+        ApplyClientPaging();
+        StateHasChanged();
+        await Task.CompletedTask;
     }
 }

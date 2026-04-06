@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace MoneyFixClient.Models;
 
 /// <summary>
@@ -9,12 +11,12 @@ public class TransactionResponse
     /// ID da transação
     /// </summary>
     public string Id { get; set; } = string.Empty;
-    
+
     /// <summary>
     /// Indica se a operação foi bem-sucedida
     /// </summary>
     public bool Success => !string.IsNullOrEmpty(Id);
-    
+
     /// <summary>
     /// Mensagem de retorno
     /// </summary>
@@ -22,77 +24,125 @@ public class TransactionResponse
 }
 
 /// <summary>
-/// Modelo para representação completa de uma transação
+/// Transação conforme contrato da API (GET/POST/PUT) e compatível com respostas legadas do maindashboard.
 /// </summary>
 public class Transaction
 {
-    /// <summary>
-    /// ID único da transação
-    /// </summary>
+    [JsonPropertyName("id")]
     public string Id { get; set; } = string.Empty;
 
-    /// <summary>
-    /// Descrição da transação
-    /// </summary>
-    public string TransactionDescription { get; set; } = string.Empty;
+    [JsonPropertyName("accountId")]
+    public string AccountId { get; set; } = string.Empty;
 
-    /// <summary>
-    /// Valor da transação
-    /// </summary>
-    public decimal TransactionAmount { get; set; }
+    [JsonPropertyName("accountName")]
+    public string AccountName { get; set; } = string.Empty;
 
-    /// <summary>
-    /// Data da transação
-    /// </summary>
-    public DateTime TransactionDate { get; set; }
+    [JsonPropertyName("categoryId")]
+    public string CategoryId { get; set; } = string.Empty;
 
-    /// <summary>
-    /// Tipo da transação (1 = Despesa, 2 = Receita)
-    /// </summary>
-    public int TransactionsType { get; set; }
-
-    /// <summary>
-    /// ID da categoria da transação
-    /// </summary>
-    public string TransactionCategoryId { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Nome da categoria (para exibição)
-    /// </summary>
+    [JsonPropertyName("categoryName")]
     public string CategoryName { get; set; } = string.Empty;
 
-    /// <summary>
-    /// ID do usuário proprietário
-    /// </summary>
-    public string UserId { get; set; } = string.Empty;
+    private string _type = string.Empty;
 
     /// <summary>
-    /// Data de criação
+    /// Tipo da transação: "Entrada" ou "Saida" (API atual); também aceita 1/2 no JSON.
     /// </summary>
-    public DateTime CreatedAt { get; set; }
+    [JsonPropertyName("type")]
+    [JsonConverter(typeof(TransactionTypeFlexibleJsonConverter))]
+    public string Type
+    {
+        get => _type;
+        set => _type = value ?? string.Empty;
+    }
 
     /// <summary>
-    /// Data da última atualização
+    /// Formato legado (maindashboard): 1 = despesa, 2 = receita.
     /// </summary>
-    public DateTime UpdatedAt { get; set; }
+    [JsonPropertyName("transactionsType")]
+    public int? TransactionsTypeLegacy
+    {
+        set
+        {
+            if (value == 1)
+                _type = "Saida";
+            else if (value == 2)
+                _type = "Entrada";
+        }
+    }
 
-    /// <summary>
-    /// Tipo da transação como enum
-    /// </summary>
-    public TransactionType Type => (TransactionType)TransactionsType;
+    [JsonPropertyName("amount")]
+    public decimal Amount { get; set; }
 
-    /// <summary>
-    /// Indica se é uma despesa
-    /// </summary>
-    public bool IsExpense => TransactionsType == 1;
+    [JsonPropertyName("transactionAmount")]
+    public decimal? TransactionAmountLegacy
+    {
+        set
+        {
+            if (value.HasValue)
+                Amount = value.Value;
+        }
+    }
 
-    /// <summary>
-    /// Indica se é uma receita
-    /// </summary>
-    public bool IsIncome => TransactionsType == 2;
-    
-    /// <summary>
-    /// Cor da categoria atribuida pelo usuário
-    /// </summary>
+    [JsonPropertyName("occurredAt")]
+    public DateTime OccurredAt { get; set; }
+
+    [JsonPropertyName("transactionDate")]
+    public DateTime? TransactionDateLegacy
+    {
+        set
+        {
+            if (value.HasValue)
+                OccurredAt = value.Value;
+        }
+    }
+
+    [JsonPropertyName("description")]
+    public string Description { get; set; } = string.Empty;
+
+    [JsonPropertyName("transactionDescription")]
+    public string? TransactionDescriptionLegacy
+    {
+        set
+        {
+            if (value != null)
+                Description = value;
+        }
+    }
+
+    [JsonPropertyName("transactionCategoryId")]
+    public string? TransactionCategoryIdLegacy
+    {
+        set
+        {
+            if (!string.IsNullOrEmpty(value))
+                CategoryId = value;
+        }
+    }
+
+    [JsonPropertyName("createdAtUtc")]
+    public DateTime CreatedAtUtc { get; set; }
+
+    [JsonPropertyName("createdAt")]
+    public DateTime? CreatedAtLegacy
+    {
+        set
+        {
+            if (value.HasValue)
+                CreatedAtUtc = value.Value;
+        }
+    }
+
+    [JsonPropertyName("categoryColor")]
     public string CategoryColor { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Indica se é uma despesa (Saída).
+    /// </summary>
+    public bool IsExpense => string.Equals(Type, "Saida", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Indica se é uma receita (Entrada).
+    /// </summary>
+    public bool IsIncome => string.Equals(Type, "Entrada", StringComparison.OrdinalIgnoreCase);
 }

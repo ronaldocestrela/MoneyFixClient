@@ -30,10 +30,10 @@ Content-Type: multipart/form-data
 The CSV file must have the following columns in order:
 
 ```
-Date,Amount,Type,Description,CategoryName
-2026-04-01,125.50,Saida,Grocery shopping,Groceries
-2026-04-02,2500.00,Entrada,Monthly salary,Salary
-2026-04-03,50.00,Saida,Gas station,Transportation
+Date,Amount,Description,CategoryName
+2026-04-01,125.50,Grocery shopping,Groceries
+2026-04-02,2500.00,Monthly salary,Salary
+2026-04-03,50.00,Gas station,Transportation
 ```
 
 **Column Specifications:**
@@ -42,9 +42,11 @@ Date,Amount,Type,Description,CategoryName
 |--------|------|----------|--------|-------|
 | Date | DateTime | Yes | `YYYY-MM-DD` | Must be valid date |
 | Amount | Decimal | Yes | `123.45` | Must be > 0, max 2 decimals |
-| Type | String | Yes | `Entrada` or `Saida` | Case-sensitive |
 | Description | String | No | Any text | Max 500 characters |
 | CategoryName | String | Yes | Category name | Must match existing category for the user |
+
+**Notes:**
+- Transaction type is derived from the category type on import and must not be included in the CSV.
 
 ### Response - Success (200 OK)
 
@@ -100,7 +102,7 @@ Date,Amount,Type,Description,CategoryName
 ```json
 {
   "errors": [
-    "CSV header is invalid. Expected: Date,Amount,Type,Description,CategoryName"
+    "CSV header is invalid. Expected: Date,Amount,Description,CategoryName"
   ]
 }
 ```
@@ -116,7 +118,7 @@ Date,Amount,Type,Description,CategoryName
     },
     {
       "rowNumber": 3,
-      "error": "Type 'Invalid' is not valid. Must be 'Entrada' or 'Saida'"
+      "error": "Date, Amount, Description, or CategoryName is invalid"
     }
   ]
 }
@@ -250,8 +252,8 @@ When a duplicate is detected during import, the transaction is **skipped** and r
 If you try to import the same transaction twice:
 
 ```
-Date,Amount,Type,Description,CategoryName
-2026-04-01,125.50,Saida,Grocery shopping,Groceries
+Date,Amount,Description,CategoryName
+2026-04-01,125.50,Grocery shopping,Groceries
 ```
 
 **First import:** Transaction is imported successfully
@@ -263,7 +265,8 @@ Date,Amount,Type,Description,CategoryName
 
 ### CSV Import Rules
 - File must be UTF-8 encoded
-- Header row is required (Date,Amount,Type,Description,CategoryName)
+- Header row is required (Date,Amount,Description,CategoryName)
+- Transaction type is derived from the category and must not be included in the CSV
 - Empty rows are ignored
 - Whitespace is trimmed from all fields
 - Categories must already exist in the system
@@ -311,7 +314,7 @@ Date,Amount,Type,Description,CategoryName
 - CSV parsing is done line-by-line for memory efficiency
 - Duplicate detection uses SHA-256 hash of (date, amount, categoryId, accountId, description)
 - Amount validation: must be > 0 and have max 2 decimal places
-- Type must exactly match `Entrada` or `Saida` (case-sensitive)
+- Transaction type is derived from the imported category and is not included in the CSV.
 - Category lookup is case-insensitive but returns the stored category name
 - All amounts are in the system's default currency
 - Import timestamp is recorded automatically

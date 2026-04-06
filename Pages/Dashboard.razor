@@ -177,8 +177,8 @@
                                     @foreach (var transaction in recentTransactions)
                                     {
                                         <tr>
-                                            <td>@transaction.TransactionDate.ToString("dd/MM/yyyy")</td>
-                                            <td>@transaction.TransactionDescription</td>
+                                            <td>@transaction.OccurredAt.ToString("dd/MM/yyyy")</td>
+                                            <td>@(string.IsNullOrWhiteSpace(transaction.Description) ? "—" : transaction.Description)</td>
                                             <td>
                                                 <span class="badge" style="background-color: @transaction.CategoryColor; color: #fff;">
                                                     @transaction.CategoryName
@@ -186,7 +186,7 @@
                                             </td>
                                             <td>
                                                 <span class="@(transaction.IsExpense ? "text-danger" : "text-success")">
-                                                    @(transaction.IsExpense ? "-" : "+")@transaction.TransactionAmount.ToString("C")
+                                                    @(transaction.IsExpense ? "-" : "+")@transaction.Amount.ToString("C")
                                                 </span>
                                             </td>
                                         </tr>

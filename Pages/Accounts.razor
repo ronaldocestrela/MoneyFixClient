@@ -1,24 +1,24 @@
-@page "/categories"
+@page "/accounts"
+@using System.Globalization
 @using MoneyFixClient.Models
 @using MoneyFixClient.Services
-@using Microsoft.AspNetCore.Components
 @using Microsoft.AspNetCore.Authorization
-@inject CategoryService CategoryService
+@inject AccountService AccountService
 @attribute [Authorize]
 
-<PageTitle>Categorias - MoneyFix</PageTitle>
+<PageTitle>Contas - MoneyFix</PageTitle>
 
 <div class="container-fluid">
     <div class="row">
         <div class="col-12">
             <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
                 <h2 class="mb-0">
-                    <i class="fas fa-tags text-primary me-2"></i>
-                    Gerenciar Categorias
+                    <i class="fas fa-university text-primary me-2"></i>
+                    Gerenciar Contas
                 </h2>
                 <button class="btn btn-primary" @onclick="ShowCreateModal">
                     <i class="fas fa-plus me-2"></i>
-                    Nova Categoria
+                    Nova Conta
                 </button>
             </div>
         </div>
@@ -39,11 +39,11 @@
 
     <div class="row mb-3">
         <div class="col-12 col-md-6 col-lg-4">
-            <label class="form-label mb-1" for="filterType">Filtrar por tipo</label>
-            <select id="filterType" class="form-select" @bind="listFilterType" @bind:after="OnListFilterChanged">
+            <label class="form-label mb-1" for="filterActive">Filtrar por status</label>
+            <select id="filterActive" class="form-select" @bind="listFilterActive" @bind:after="OnListFilterChanged">
                 <option value="">Todas</option>
-                <option value="1">Entrada (receita)</option>
-                <option value="2">Saída (despesa)</option>
+                <option value="true">Ativas</option>
+                <option value="false">Inativas</option>
             </select>
         </div>
     </div>
@@ -54,7 +54,7 @@
                 <div class="card-header">
                     <h5 class="card-title mb-0">
                         <i class="fas fa-list me-2"></i>
-                        Suas Categorias
+                        Suas Contas
                     </h5>
                 </div>
                 <div class="card-body">
@@ -64,47 +64,67 @@
                             <div class="spinner-border text-primary" role="status">
                                 <span class="visually-hidden">Carregando...</span>
                             </div>
-                            <p class="mt-2">Carregando categorias...</p>
+                            <p class="mt-2">Carregando contas...</p>
                         </div>
                     }
-                    else if (categories.Any())
+                    else if (accounts.Any())
                     {
                         <div class="row">
-                            @foreach (var category in categories)
+                            @foreach (var account in accounts)
                             {
                                 <div class="col-md-6 col-lg-4 mb-3">
-                                    <div class="card h-100" style="border-left: 0.3rem solid @(string.IsNullOrWhiteSpace(category.Color) ? "#0d6efd" : category.Color);">
+                                    <div class="card h-100" style="border-left: 0.3rem solid @GetTypeBorderColor(account.Type);">
                                         <div class="card-body">
                                             <div class="d-flex justify-content-between align-items-start">
                                                 <div>
-                                                    <h6 class="card-title text-primary mb-1">@category.Name</h6>
+                                                    <h6 class="card-title text-primary mb-1">@account.Name</h6>
                                                     <div class="small text-muted mb-1">
-                                                        <span class="badge @(category.Type == CategoryType.Entrada ? "bg-success" : "bg-secondary")">
-                                                            @GetTypeDisplayLabel(category.Type)
+                                                        <span class="badge @GetTypeBadgeClass(account.Type)">
+                                                            @GetTypeDisplayLabel(account.Type)
                                                         </span>
+                                                        @if (account.IsActive)
+                                                        {
+                                                            <span class="badge bg-success ms-1">Ativa</span>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span class="badge bg-secondary ms-1">Inativa</span>
+                                                        }
                                                     </div>
-                                                    @if (category.CreatedAtUtc.HasValue)
+                                                    <div class="small mb-1">
+                                                        <span class="text-muted">Saldo inicial:</span>
+                                                        <strong>@FormatMoney(account.InitialBalance)</strong>
+                                                    </div>
+                                                    <div class="small mb-1">
+                                                        <span class="text-muted">Saldo atual:</span>
+                                                        <strong>@FormatMoney(account.CurrentBalance)</strong>
+                                                    </div>
+                                                    @if (account.CreatedAtUtc.HasValue)
                                                     {
                                                         <small class="text-muted">
-                                                            Criada em @category.CreatedAtUtc.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+                                                            Criada em @account.CreatedAtUtc.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm", CultureInfo.GetCultureInfo("pt-BR"))
                                                         </small>
                                                     }
                                                 </div>
                                                 <div class="dropdown">
-                                                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" 
-                                                            type="button" 
-                                                            id="dropdownMenuButton-@category.Id" 
-                                                            data-bs-toggle="dropdown" 
+                                                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle"
+                                                            type="button"
+                                                            id="dropdownAccount-@account.Id"
+                                                            data-bs-toggle="dropdown"
                                                             aria-expanded="false">
                                                         <i class="fas fa-ellipsis-v"></i>
                                                     </button>
-                                                    <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton-@category.Id">
-                                                        <li><button class="dropdown-item" type="button" @onclick="() => ShowEditModal(category)">
-                                                            <i class="fas fa-edit me-2"></i>Editar
-                                                        </button></li>
-                                                        <li><button class="dropdown-item text-danger" type="button" @onclick="() => ShowDeleteModal(category)">
-                                                            <i class="fas fa-trash me-2"></i>Excluir
-                                                        </button></li>
+                                                    <ul class="dropdown-menu" aria-labelledby="dropdownAccount-@account.Id">
+                                                        <li>
+                                                            <button class="dropdown-item" type="button" @onclick="() => ShowEditModal(account)">
+                                                                <i class="fas fa-edit me-2"></i>Editar
+                                                            </button>
+                                                        </li>
+                                                        <li>
+                                                            <button class="dropdown-item text-danger" type="button" @onclick="() => ShowDeleteModal(account)">
+                                                                <i class="fas fa-trash me-2"></i>Excluir
+                                                            </button>
+                                                        </li>
                                                     </ul>
                                                 </div>
                                             </div>
@@ -117,12 +137,12 @@
                     else
                     {
                         <div class="text-center py-5">
-                            <i class="fas fa-tags fa-3x text-muted mb-3"></i>
-                            <h5 class="text-muted">Nenhuma categoria encontrada</h5>
-                            <p class="text-muted">Crie sua primeira categoria para organizar suas transações.</p>
+                            <i class="fas fa-university fa-3x text-muted mb-3"></i>
+                            <h5 class="text-muted">Nenhuma conta encontrada</h5>
+                            <p class="text-muted">Crie sua primeira conta para vincular transações.</p>
                             <button class="btn btn-primary" @onclick="ShowCreateModal">
                                 <i class="fas fa-plus me-2"></i>
-                                Criar Primeira Categoria
+                                Criar Primeira Conta
                             </button>
                         </div>
                     }
@@ -132,45 +152,42 @@
     </div>
 </div>
 
-<!-- Modal para Criar Categoria -->
+<!-- Modal Criar Conta -->
 <div class="modal fade @(showCreateModal ? "show d-block" : "")" tabindex="-1" style="@(showCreateModal ? "background-color: rgba(0,0,0,0.5);" : "")">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">
                     <i class="fas fa-plus text-primary me-2"></i>
-                    Nova Categoria
+                    Nova Conta
                 </h5>
                 <button type="button" class="btn-close" @onclick="HideCreateModal"></button>
             </div>
-            <EditForm Model="@newCategory" OnValidSubmit="@CreateCategory">
+            <EditForm Model="@newAccount" OnValidSubmit="@CreateAccount">
                 <DataAnnotationsValidator />
                 <div class="modal-body">
                     <div class="mb-3">
-                        <label for="categoryName" class="form-label">Nome da Categoria</label>
-                        <InputText @bind-Value="newCategory.Name" 
-                                    class="form-control" 
-                                    id="categoryName" 
-                                    placeholder="Ex: Alimentação, Transporte, Lazer..." />
-                        <ValidationMessage For="@(() => newCategory.Name)" class="text-danger" />
+                        <label for="accountName" class="form-label">Nome</label>
+                        <InputText @bind-Value="newAccount.Name" class="form-control" id="accountName" placeholder="Ex.: Conta principal" />
+                        <ValidationMessage For="@(() => newAccount.Name)" class="text-danger" />
                     </div>
                     <div class="mb-3">
-                        <label for="categoryType" class="form-label">Tipo</label>
-                        <InputSelect @bind-Value="newCategory.Type" class="form-select" id="categoryType">
-                            <option value="@CategoryType.Saida">Saída (despesa)</option>
-                            <option value="@CategoryType.Entrada">Entrada (receita)</option>
+                        <label for="accountType" class="form-label">Tipo</label>
+                        <InputSelect @bind-Value="newAccount.Type" class="form-select" id="accountType">
+                            <option value="@AccountType.ContaCorrente">Conta corrente</option>
+                            <option value="@AccountType.Poupanca">Poupança</option>
+                            <option value="@AccountType.Carteira">Carteira</option>
                         </InputSelect>
-                        <ValidationMessage For="@(() => newCategory.Type)" class="text-danger" />
+                        <ValidationMessage For="@(() => newAccount.Type)" class="text-danger" />
                     </div>
                     <div class="mb-3">
-                        <label for="categoryColor" class="form-label">Cor</label>
-                        <InputText type="color"
-                                    @bind-Value="newCategory.Color"
-                                    class="form-control form-control-color"
-                                    id="categoryColor"
-                                    style="width: 3rem; height: 3rem; padding: 0;"
-                        />
-                        <ValidationMessage For="@(() => newCategory.Color)" class="text-danger" />
+                        <label for="initialBalance" class="form-label">Saldo inicial</label>
+                        <InputNumber @bind-Value="newAccount.InitialBalance" class="form-control" id="initialBalance" />
+                        <ValidationMessage For="@(() => newAccount.InitialBalance)" class="text-danger" />
+                    </div>
+                    <div class="mb-3 form-check">
+                        <InputCheckbox @bind-Value="newAccount.IsActive" class="form-check-input" id="accountActive" />
+                        <label class="form-check-label" for="accountActive">Conta ativa</label>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -187,7 +204,7 @@
                         else
                         {
                             <i class="fas fa-save me-2"></i>
-                            <text>Criar Categoria</text>
+                            <text>Criar Conta</text>
                         }
                     </button>
                 </div>
@@ -196,45 +213,37 @@
     </div>
 </div>
 
-<!-- Modal para Editar Categoria -->
+<!-- Modal Editar Conta -->
 <div class="modal fade @(showEditModal ? "show d-block" : "")" tabindex="-1" style="@(showEditModal ? "background-color: rgba(0,0,0,0.5);" : "")">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">
                     <i class="fas fa-edit text-primary me-2"></i>
-                    Editar Categoria
+                    Editar Conta
                 </h5>
                 <button type="button" class="btn-close" @onclick="HideEditModal"></button>
             </div>
-            <EditForm Model="@editCategory" OnValidSubmit="@UpdateCategory">
+            <EditForm Model="@editAccount" OnValidSubmit="@UpdateAccount">
                 <DataAnnotationsValidator />
                 <div class="modal-body">
                     <div class="mb-3">
-                        <label for="editCategoryName" class="form-label">Nome da Categoria</label>
-                        <InputText @bind-Value="editCategory.Name" 
-                                    class="form-control" 
-                                    id="editCategoryName" 
-                                    placeholder="Ex: Alimentação, Transporte, Lazer..." />
-                        <ValidationMessage For="@(() => editCategory.Name)" class="text-danger" />
+                        <label class="form-label text-muted small">Tipo (não editável)</label>
+                        <p class="form-control-plaintext mb-0"><strong>@GetTypeDisplayLabel(editingAccountType)</strong></p>
                     </div>
                     <div class="mb-3">
-                        <label for="editCategoryType" class="form-label">Tipo</label>
-                        <InputSelect @bind-Value="editCategory.Type" class="form-select" id="editCategoryType">
-                            <option value="@CategoryType.Saida">Saída (despesa)</option>
-                            <option value="@CategoryType.Entrada">Entrada (receita)</option>
-                        </InputSelect>
-                        <ValidationMessage For="@(() => editCategory.Type)" class="text-danger" />
+                        <label for="editAccountName" class="form-label">Nome</label>
+                        <InputText @bind-Value="editAccount.Name" class="form-control" id="editAccountName" />
+                        <ValidationMessage For="@(() => editAccount.Name)" class="text-danger" />
                     </div>
                     <div class="mb-3">
-                        <label for="editCategoryColor" class="form-label">Cor</label>
-                        <InputText type="color"
-                                    @bind-Value="editCategory.Color"
-                                    class="form-control form-control-color"
-                                    id="editCategoryColor"
-                                    style="width: 3rem; height: 3rem; padding: 0;"
-                        />
-                        <ValidationMessage For="@(() => editCategory.Color)" class="text-danger" />
+                        <label for="editInitialBalance" class="form-label">Saldo inicial</label>
+                        <InputNumber @bind-Value="editAccount.InitialBalance" class="form-control" id="editInitialBalance" disabled />
+                        <small class="text-muted">O saldo inicial não pode ser alterado após a criação; apenas transações alteram o saldo atual.</small>
+                    </div>
+                    <div class="mb-3 form-check">
+                        <InputCheckbox @bind-Value="editAccount.IsActive" class="form-check-input" id="editAccountActive" />
+                        <label class="form-check-label" for="editAccountActive">Conta ativa</label>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -260,24 +269,24 @@
     </div>
 </div>
 
-<!-- Modal de confirmação de exclusão -->
+<!-- Modal Excluir -->
 <div class="modal fade @(showDeleteModal ? "show d-block" : "")" tabindex="-1" style="@(showDeleteModal ? "background-color: rgba(0,0,0,0.5);" : "")">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">
                     <i class="fas fa-trash text-danger me-2"></i>
-                    Excluir categoria
+                    Excluir conta
                 </h5>
                 <button type="button" class="btn-close" @onclick="HideDeleteModal"></button>
             </div>
             <div class="modal-body">
-                @if (categoryToDelete != null)
+                @if (accountToDelete != null)
                 {
-                    <p>Tem certeza que deseja excluir a categoria <strong>@categoryToDelete.Name</strong>?</p>
+                    <p>Tem certeza que deseja excluir a conta <strong>@accountToDelete.Name</strong>?</p>
                     <p class="text-danger small mb-0">
                         <i class="fas fa-exclamation-triangle me-1"></i>
-                        Não é possível excluir uma categoria com transações associadas. Esta ação não pode ser desfeita.
+                        Não é possível excluir uma conta com transações associadas. Esta ação não pode ser desfeita.
                     </p>
                 }
             </div>
@@ -285,7 +294,7 @@
                 <button type="button" class="btn btn-secondary" @onclick="HideDeleteModal" disabled="@isDeleting">
                     Cancelar
                 </button>
-                <button type="button" class="btn btn-danger" @onclick="ConfirmDeleteCategory" disabled="@isDeleting">
+                <button type="button" class="btn btn-danger" @onclick="ConfirmDeleteAccount" disabled="@isDeleting">
                     @if (isDeleting)
                     {
                         <span class="spinner-border spinner-border-sm me-2" role="status"></span>
@@ -303,10 +312,11 @@
 </div>
 
 @code {
-    private List<Category> categories = new();
-    private CreateCategoryRequest newCategory = new();
-    private CreateCategoryRequest editCategory = new();
-    private string editingCategoryId = string.Empty;
+    private List<Account> accounts = new();
+    private CreateAccountRequest newAccount = new();
+    private UpdateAccountRequest editAccount = new();
+    private string editingAccountId = string.Empty;
+    private AccountType editingAccountType;
     private bool isLoading = true;
     private bool isCreating = false;
     private bool isUpdating = false;
@@ -314,36 +324,39 @@
     private bool showCreateModal = false;
     private bool showEditModal = false;
     private bool showDeleteModal = false;
-    private Category? categoryToDelete;
-    private string listFilterType = string.Empty;
+    private Account? accountToDelete;
+    private string listFilterActive = string.Empty;
     private string alertMessage = string.Empty;
     private string alertType = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadCategories();
+        await LoadAccounts();
     }
 
     private async Task OnListFilterChanged()
     {
-        await LoadCategories();
+        await LoadAccounts();
     }
 
-    private async Task LoadCategories()
+    private async Task LoadAccounts()
     {
         isLoading = true;
         StateHasChanged();
 
         try
         {
-            int? typeFilter = null;
-            if (!string.IsNullOrWhiteSpace(listFilterType) && int.TryParse(listFilterType, out var t) && t is CategoryType.Entrada or CategoryType.Saida)
-                typeFilter = t;
-            categories = await CategoryService.GetCategoriesAsync(typeFilter);
+            bool? activeFilter = null;
+            if (listFilterActive == "true")
+                activeFilter = true;
+            else if (listFilterActive == "false")
+                activeFilter = false;
+
+            accounts = await AccountService.GetAccountsAsync(activeFilter);
         }
         catch (Exception ex)
         {
-            ShowAlert($"Erro ao carregar categorias: {ex.Message}", "error");
+            ShowAlert($"Erro ao carregar contas: {ex.Message}", "error");
         }
         finally
         {
@@ -352,15 +365,43 @@
         }
     }
 
-    private static string GetTypeDisplayLabel(int type) =>
-        type == CategoryType.Entrada ? "Entrada" : type == CategoryType.Saida ? "Saída" : type.ToString();
+    private static string FormatMoney(decimal value) =>
+        value.ToString("N2", CultureInfo.GetCultureInfo("pt-BR"));
+
+    private static string GetTypeBorderColor(AccountType type) =>
+        type switch
+        {
+            AccountType.ContaCorrente => "#0d6efd",
+            AccountType.Poupanca => "#198754",
+            AccountType.Carteira => "#fd7e14",
+            _ => "#6c757d"
+        };
+
+    private static string GetTypeBadgeClass(AccountType type) =>
+        type switch
+        {
+            AccountType.ContaCorrente => "bg-primary",
+            AccountType.Poupanca => "bg-success",
+            AccountType.Carteira => "text-dark bg-warning",
+            _ => "bg-secondary"
+        };
+
+    private static string GetTypeDisplayLabel(AccountType type) =>
+        type switch
+        {
+            AccountType.ContaCorrente => "Conta corrente",
+            AccountType.Poupanca => "Poupança",
+            AccountType.Carteira => "Carteira",
+            _ => "—"
+        };
 
     private void ShowCreateModal()
     {
-        newCategory = new CreateCategoryRequest
+        newAccount = new CreateAccountRequest
         {
-            Type = CategoryType.Saida,
-            Color = "#0d6efd"
+            Type = AccountType.ContaCorrente,
+            IsActive = true,
+            InitialBalance = 0
         };
         showCreateModal = true;
         StateHasChanged();
@@ -369,24 +410,22 @@
     private void HideCreateModal()
     {
         showCreateModal = false;
-        newCategory = new CreateCategoryRequest();
+        newAccount = new CreateAccountRequest();
         StateHasChanged();
     }
 
-    private void ShowEditModal(Category category)
+    private void ShowEditModal(Account account)
     {
-        if (category == null)
+        if (account == null)
             return;
 
-        editingCategoryId = category.Id;
-        var type = category.Type == CategoryType.Entrada || category.Type == CategoryType.Saida
-            ? category.Type
-            : CategoryType.Saida;
-        editCategory = new CreateCategoryRequest
+        editingAccountId = account.Id;
+        editingAccountType = account.Type;
+        editAccount = new UpdateAccountRequest
         {
-            Name = category.Name ?? string.Empty,
-            Type = type,
-            Color = string.IsNullOrWhiteSpace(category.Color) ? "#0d6efd" : category.Color
+            Name = account.Name ?? string.Empty,
+            InitialBalance = account.InitialBalance,
+            IsActive = account.IsActive
         };
         showEditModal = true;
         StateHasChanged();
@@ -395,14 +434,15 @@
     private void HideEditModal()
     {
         showEditModal = false;
-        editingCategoryId = string.Empty;
-        editCategory = new CreateCategoryRequest();
+        editingAccountId = string.Empty;
+        editingAccountType = default;
+        editAccount = new UpdateAccountRequest();
         StateHasChanged();
     }
 
-    private void ShowDeleteModal(Category category)
+    private void ShowDeleteModal(Account account)
     {
-        categoryToDelete = category;
+        accountToDelete = account;
         showDeleteModal = true;
         StateHasChanged();
     }
@@ -410,11 +450,11 @@
     private void HideDeleteModal()
     {
         showDeleteModal = false;
-        categoryToDelete = null;
+        accountToDelete = null;
         StateHasChanged();
     }
 
-    private async Task CreateCategory()
+    private async Task CreateAccount()
     {
         if (isCreating) return;
 
@@ -423,13 +463,13 @@
 
         try
         {
-            var result = await CategoryService.CreateCategoryAsync(newCategory);
+            var result = await AccountService.CreateAccountAsync(newAccount);
 
             if (result.Success)
             {
                 ShowAlert(result.Message, "success");
                 HideCreateModal();
-                await LoadCategories();
+                await LoadAccounts();
             }
             else
             {
@@ -438,7 +478,7 @@
         }
         catch (Exception ex)
         {
-            ShowAlert($"Erro ao criar categoria: {ex.Message}", "error");
+            ShowAlert($"Erro ao criar conta: {ex.Message}", "error");
         }
         finally
         {
@@ -447,29 +487,22 @@
         }
     }
 
-    private async Task UpdateCategory()
+    private async Task UpdateAccount()
     {
-        if (isUpdating || string.IsNullOrEmpty(editingCategoryId)) return;
+        if (isUpdating || string.IsNullOrEmpty(editingAccountId)) return;
 
         isUpdating = true;
         StateHasChanged();
 
         try
         {
-            var body = new UpdateCategoryRequest
-            {
-                Name = editCategory.Name,
-                Type = editCategory.Type,
-                Color = editCategory.Color
-            };
-
-            var result = await CategoryService.UpdateCategoryAsync(editingCategoryId, body);
+            var result = await AccountService.UpdateAccountAsync(editingAccountId, editAccount);
 
             if (result.Success)
             {
                 ShowAlert(result.Message, "success");
                 HideEditModal();
-                await LoadCategories();
+                await LoadAccounts();
             }
             else
             {
@@ -478,7 +511,7 @@
         }
         catch (Exception ex)
         {
-            ShowAlert($"Erro ao atualizar categoria: {ex.Message}", "error");
+            ShowAlert($"Erro ao atualizar conta: {ex.Message}", "error");
         }
         finally
         {
@@ -487,22 +520,22 @@
         }
     }
 
-    private async Task ConfirmDeleteCategory()
+    private async Task ConfirmDeleteAccount()
     {
-        if (isDeleting || categoryToDelete == null) return;
+        if (isDeleting || accountToDelete == null) return;
 
         isDeleting = true;
         StateHasChanged();
 
         try
         {
-            var result = await CategoryService.DeleteCategoryAsync(categoryToDelete.Id);
+            var result = await AccountService.DeleteAccountAsync(accountToDelete.Id);
 
             if (result.Success)
             {
                 ShowAlert(result.Message, "success");
                 HideDeleteModal();
-                await LoadCategories();
+                await LoadAccounts();
             }
             else
             {
@@ -511,7 +544,7 @@
         }
         catch (Exception ex)
         {
-            ShowAlert($"Erro ao excluir categoria: {ex.Message}", "error");
+            ShowAlert($"Erro ao excluir conta: {ex.Message}", "error");
         }
         finally
         {

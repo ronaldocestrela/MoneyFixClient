@@ -1,61 +1,144 @@
 using MoneyFixClient.Models;
+using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Linq;
 
 namespace MoneyFixClient.Services;
 
 /// <summary>
-/// Serviço responsável pelo gerenciamento de transações
+/// Serviço responsável pelo gerenciamento de transações (contrato em docs/api/04-transactions.md).
 /// </summary>
 public class TransactionService
 {
     private readonly HttpClient _httpClient;
+
+    private static JsonSerializerOptions JsonOptions => new()
+    {
+        PropertyNameCaseInsensitive = true,
+        ReadCommentHandling = JsonCommentHandling.Skip,
+        AllowTrailingCommas = true,
+        NumberHandling = JsonNumberHandling.AllowReadingFromString
+    };
+
+    /// <summary>
+    /// Array na raiz ou objeto com data/items/transactions; item a item para não perder a lista inteira por um campo inesperado.
+    /// </summary>
+    private static List<Transaction> DeserializeTransactionsList(string raw)
+    {
+        raw = raw.Trim().TrimStart('\uFEFF');
+        if (string.IsNullOrWhiteSpace(raw))
+            return new List<Transaction>();
+
+        try
+        {
+            using var doc = JsonDocument.Parse(raw);
+            var root = doc.RootElement;
+
+            if (root.ValueKind == JsonValueKind.Array)
+                return DeserializeTransactionArray(root);
+
+            if (root.ValueKind == JsonValueKind.Object)
+            {
+                foreach (var name in new[] { "data", "items", "transactions", "results", "value", "payload" })
+                {
+                    if (root.TryGetProperty(name, out var inner) && inner.ValueKind == JsonValueKind.Array)
+                        return DeserializeTransactionArray(inner);
+                }
+            }
+
+            Console.WriteLine($"TransactionService: Formato JSON inesperado para lista (trecho): {raw[..Math.Min(200, raw.Length)]}");
+            return new List<Transaction>();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"TransactionService: Falha ao interpretar lista de transações: {ex.Message}");
+            return new List<Transaction>();
+        }
+    }
+
+    private static List<Transaction> DeserializeTransactionArray(JsonElement array)
+    {
+        var list = new List<Transaction>();
+        foreach (var el in array.EnumerateArray())
+        {
+            try
+            {
+                var tx = JsonSerializer.Deserialize<Transaction>(el.GetRawText(), JsonOptions);
+                if (tx != null)
+                    list.Add(tx);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"TransactionService: Item de transação ignorado na lista: {ex.Message}");
+            }
+        }
+
+        return list;
+    }
 
     public TransactionService(HttpClient httpClient)
     {
         _httpClient = httpClient;
     }
 
+    private static string FormatErrorBody(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+            return "Erro na operação.";
+        try
+        {
+            var payload = JsonSerializer.Deserialize<TransactionApiErrorPayload>(raw, JsonOptions);
+            if (!string.IsNullOrEmpty(payload?.Message))
+                return payload.Message;
+            if (payload?.Errors is { Count: > 0 })
+                return string.Join(" ", payload.Errors);
+        }
+        catch
+        {
+            // ignora
+        }
+
+        return raw;
+    }
+
     /// <summary>
-    /// Cria uma nova transação
+    /// Cria uma nova transação (POST /api/transactions — resposta 201 com corpo completo).
     /// </summary>
-    /// <param name="request">Dados da transação a ser criada</param>
-    /// <returns>Resultado da criação</returns>
     public async Task<TransactionResponse> CreateTransactionAsync(TransactionRequest request)
     {
         try
         {
-            Console.WriteLine($"TransactionService: Criando transação '{request.TransactionDescription}'");
-            Console.WriteLine($"TransactionService: Valor: {request.TransactionAmount:C}, Tipo: {request.TransactionsType}");
+            Console.WriteLine($"TransactionService: Criando transação — conta {request.AccountId}, categoria {request.CategoryId}");
 
-            var response = await _httpClient.PostAsJsonAsync("/api/transactions", request);
+            var response = await _httpClient.PostAsJsonAsync("/api/transactions", request, JsonOptions);
 
-            if (response.IsSuccessStatusCode)
+            var body = await response.Content.ReadAsStringAsync();
+
+            if (response.StatusCode == HttpStatusCode.Created && response.IsSuccessStatusCode)
             {
-                var content = await response.Content.ReadAsStringAsync();
-                Console.WriteLine($"TransactionService: Resposta da API: {content}");
-
-                // A API retorna apenas o ID como string
-                var transactionId = JsonSerializer.Deserialize<string>(content);
-
-                if (!string.IsNullOrEmpty(transactionId))
+                var tx = JsonSerializer.Deserialize<Transaction>(body, JsonOptions);
+                if (tx != null && !string.IsNullOrEmpty(tx.Id))
                 {
-                    Console.WriteLine($"TransactionService: Transação criada com sucesso! ID: {transactionId}");
                     return new TransactionResponse
                     {
-                        Id = transactionId,
+                        Id = tx.Id,
                         Message = "Transação criada com sucesso!"
                     };
                 }
             }
 
-            var errorContent = await response.Content.ReadAsStringAsync();
-            Console.WriteLine($"TransactionService: Erro na criação - Status: {response.StatusCode}, Content: {errorContent}");
+            Console.WriteLine($"TransactionService: Erro na criação - Status: {response.StatusCode}, Content: {body}");
 
             return new TransactionResponse
             {
-                Message = !string.IsNullOrEmpty(errorContent) ? errorContent : "Erro ao criar transação"
+                Message = response.StatusCode switch
+                {
+                    HttpStatusCode.BadRequest => FormatErrorBody(body),
+                    HttpStatusCode.Unauthorized => "Você não está autenticado",
+                    _ => FormatErrorBody(body)
+                }
             };
         }
         catch (Exception ex)
@@ -69,47 +152,43 @@ public class TransactionService
     }
 
     /// <summary>
-    /// Atualiza uma transação existente
+    /// Atualiza uma transação (PUT /api/transactions/{id} — resposta 200 com corpo completo).
     /// </summary>
-    /// <param name="id">ID da transação</param>
-    /// <param name="request">Dados atualizados da transação</param>
-    /// <returns>Resultado da atualização</returns>
     public async Task<TransactionResponse> UpdateTransactionAsync(string id, TransactionRequest request)
     {
         try
         {
             Console.WriteLine($"TransactionService: Atualizando transação {id}");
-            Console.WriteLine($"TransactionService: Nova descrição: '{request.TransactionDescription}'");
 
-            var response = await _httpClient.PutAsJsonAsync($"/api/transactions/{id}", request);
+            var response = await _httpClient.PutAsJsonAsync($"/api/transactions/{Uri.EscapeDataString(id)}", request, JsonOptions);
+            var body = await response.Content.ReadAsStringAsync();
 
             if (response.IsSuccessStatusCode)
             {
-                var content = await response.Content.ReadAsStringAsync();
-                Console.WriteLine($"TransactionService: Resposta da API: {content}");
-
-                // A API retorna o ID da transação atualizada
-                var transactionId = JsonSerializer.Deserialize<string>(content);
-
-                if (!string.IsNullOrEmpty(transactionId))
+                var tx = JsonSerializer.Deserialize<Transaction>(body, JsonOptions);
+                if (tx != null && !string.IsNullOrEmpty(tx.Id))
                 {
-                    Console.WriteLine($"TransactionService: Transação atualizada com sucesso! ID: {transactionId}");
                     return new TransactionResponse
                     {
-                        Id = transactionId,
+                        Id = tx.Id,
                         Message = "Transação atualizada com sucesso!"
                     };
                 }
+
+                return new TransactionResponse
+                {
+                    Id = id,
+                    Message = "Transação atualizada com sucesso!"
+                };
             }
 
-            var errorContent = await response.Content.ReadAsStringAsync();
             var errorMessage = response.StatusCode switch
             {
-                System.Net.HttpStatusCode.BadRequest => "Dados inválidos fornecidos",
-                System.Net.HttpStatusCode.Unauthorized => "Você não está autenticado",
-                System.Net.HttpStatusCode.Forbidden => "Você não tem permissão para editar esta transação",
-                System.Net.HttpStatusCode.NotFound => "Transação não encontrada",
-                _ => !string.IsNullOrEmpty(errorContent) ? errorContent : "Erro ao atualizar transação"
+                HttpStatusCode.BadRequest => FormatErrorBody(body),
+                HttpStatusCode.Unauthorized => "Você não está autenticado",
+                HttpStatusCode.Forbidden => "Você não tem permissão para editar esta transação",
+                HttpStatusCode.NotFound => "Transação não encontrada",
+                _ => FormatErrorBody(body)
             };
 
             Console.WriteLine($"TransactionService: Erro na atualização - Status: {response.StatusCode}, Message: {errorMessage}");
@@ -130,44 +209,32 @@ public class TransactionService
     }
 
     /// <summary>
-    /// Exclui uma transação
+    /// Exclui uma transação (DELETE /api/transactions/{id} — 204 sem corpo).
     /// </summary>
-    /// <param name="id">ID da transação</param>
-    /// <returns>Resultado da exclusão</returns>
     public async Task<TransactionResponse> DeleteTransactionAsync(string id)
     {
         try
         {
             Console.WriteLine($"TransactionService: Excluindo transação {id}");
 
-            var response = await _httpClient.DeleteAsync($"/api/transactions/{id}");
+            var response = await _httpClient.DeleteAsync($"/api/transactions/{Uri.EscapeDataString(id)}");
 
-            if (response.IsSuccessStatusCode)
+            if (response.StatusCode == HttpStatusCode.NoContent)
             {
-                var content = await response.Content.ReadAsStringAsync();
-                Console.WriteLine($"TransactionService: Resposta da API: {content}");
-
-                // A API retorna o ID da transação excluída
-                var transactionId = JsonSerializer.Deserialize<string>(content);
-
-                if (!string.IsNullOrEmpty(transactionId))
+                return new TransactionResponse
                 {
-                    Console.WriteLine($"TransactionService: Transação excluída com sucesso! ID: {transactionId}");
-                    return new TransactionResponse
-                    {
-                        Id = transactionId,
-                        Message = "Transação excluída com sucesso!"
-                    };
-                }
+                    Id = id,
+                    Message = "Transação excluída com sucesso!"
+                };
             }
 
-            var errorContent = await response.Content.ReadAsStringAsync();
+            var body = await response.Content.ReadAsStringAsync();
             var errorMessage = response.StatusCode switch
             {
-                System.Net.HttpStatusCode.Unauthorized => "Você não está autenticado",
-                System.Net.HttpStatusCode.Forbidden => "Você não tem permissão para excluir esta transação",
-                System.Net.HttpStatusCode.NotFound => "Transação não encontrada",
-                _ => !string.IsNullOrEmpty(errorContent) ? errorContent : "Erro ao excluir transação"
+                HttpStatusCode.Unauthorized => "Você não está autenticado",
+                HttpStatusCode.Forbidden => "Você não tem permissão para excluir esta transação",
+                HttpStatusCode.NotFound => "Transação não encontrada",
+                _ => FormatErrorBody(body)
             };
 
             Console.WriteLine($"TransactionService: Erro na exclusão - Status: {response.StatusCode}, Message: {errorMessage}");
@@ -188,9 +255,62 @@ public class TransactionService
     }
 
     /// <summary>
-    /// Lista todas as transações do usuário (paginação suportada)
+    /// Lista transações com filtros opcionais (GET /api/transactions).
     /// </summary>
-    /// <returns>Lista de transações</returns>
+    public async Task<List<Transaction>> GetTransactionsAsync(TransactionFilter? filter = null)
+    {
+        try
+        {
+            var url = "/api/transactions";
+            var query = BuildQuery(filter);
+            if (!string.IsNullOrEmpty(query))
+                url += "?" + query;
+
+            Console.WriteLine($"TransactionService: Buscando transações {url}");
+
+            var response = await _httpClient.GetAsync(url);
+
+            if (response.IsSuccessStatusCode)
+            {
+                var content = await response.Content.ReadAsStringAsync();
+                var transactions = DeserializeTransactionsList(content);
+                Console.WriteLine($"TransactionService: {transactions.Count} transações encontradas");
+                return transactions;
+            }
+
+            Console.WriteLine($"TransactionService: Erro ao buscar transações - Status: {response.StatusCode}");
+            return new List<Transaction>();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"TransactionService: Exceção ao buscar transações: {ex.Message}");
+            return new List<Transaction>();
+        }
+    }
+
+    private static string BuildQuery(TransactionFilter? filter)
+    {
+        if (filter == null)
+            return string.Empty;
+
+        var parts = new List<string>();
+        if (filter.From.HasValue)
+            parts.Add($"from={Uri.EscapeDataString(filter.From.Value.ToUniversalTime().ToString("o"))}");
+        if (filter.To.HasValue)
+            parts.Add($"to={Uri.EscapeDataString(filter.To.Value.ToUniversalTime().ToString("o"))}");
+        if (!string.IsNullOrWhiteSpace(filter.Type))
+            parts.Add($"type={Uri.EscapeDataString(filter.Type)}");
+        if (!string.IsNullOrWhiteSpace(filter.CategoryId))
+            parts.Add($"categoryId={Uri.EscapeDataString(filter.CategoryId)}");
+        if (!string.IsNullOrWhiteSpace(filter.AccountId))
+            parts.Add($"accountId={Uri.EscapeDataString(filter.AccountId)}");
+
+        return string.Join("&", parts);
+    }
+
+    /// <summary>
+    /// Lista com paginação por header (legado — pageNumber/pageSize se o servidor suportar).
+    /// </summary>
     public async Task<PaginatedResult<List<Transaction>>> GetTransactionsAsync(int pageNumber = 1, int pageSize = 1000)
     {
         try
@@ -202,10 +322,7 @@ public class TransactionService
             if (response.IsSuccessStatusCode)
             {
                 var content = await response.Content.ReadAsStringAsync();
-                var transactions = JsonSerializer.Deserialize<List<Transaction>>(content, new JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true
-                }) ?? new List<Transaction>();
+                var transactions = DeserializeTransactionsList(content);
 
                 Pagination? pagination = null;
                 if (response.Headers.TryGetValues("Pagination", out var values))
@@ -215,10 +332,7 @@ public class TransactionService
                     {
                         try
                         {
-                            pagination = JsonSerializer.Deserialize<Pagination>(header, new JsonSerializerOptions
-                            {
-                                PropertyNameCaseInsensitive = true
-                            });
+                            pagination = JsonSerializer.Deserialize<Pagination>(header, JsonOptions);
                         }
                         catch (Exception ex)
                         {
@@ -245,17 +359,39 @@ public class TransactionService
         }
     }
 
-    // Sobrecarga para compatibilidade com código existente
-    public async Task<List<Transaction>> GetTransactionsAsync()
+    /// <summary>
+    /// Obtém uma transação por id (GET /api/transactions/{id}).
+    /// </summary>
+    public async Task<Transaction?> GetTransactionByIdAsync(string id)
     {
-        var result = await GetTransactionsAsync(1, 1000);
-        return result.Items;
+        if (string.IsNullOrWhiteSpace(id))
+            return null;
+
+        try
+        {
+            var response = await _httpClient.GetAsync($"/api/transactions/{Uri.EscapeDataString(id)}");
+
+            if (response.StatusCode == HttpStatusCode.NotFound)
+                return null;
+
+            if (response.IsSuccessStatusCode)
+            {
+                var content = await response.Content.ReadAsStringAsync();
+                return JsonSerializer.Deserialize<Transaction>(content, JsonOptions);
+            }
+
+            return null;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"TransactionService: Exceção ao obter transação: {ex.Message}");
+            return null;
+        }
     }
 
     /// <summary>
-    /// Lista as ultimas 5 tranzações do usuário
+    /// Últimas transações do dashboard.
     /// </summary>
-    /// <returns>Lista de transações</returns>
     public async Task<List<Transaction>> GetLastTransactionsAsync(DateTime? startDate = null, DateTime? endDate = null)
     {
         try
@@ -265,27 +401,21 @@ public class TransactionService
             if (response.IsSuccessStatusCode)
             {
                 var content = await response.Content.ReadAsStringAsync();
-                var transactions = JsonSerializer.Deserialize<List<Transaction>>(content, new JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true
-                });
-
-                return transactions ?? new List<Transaction>();
+                return DeserializeTransactionsList(content);
             }
 
             return new List<Transaction>();
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"CategoryService: Exceção ao buscar transações: {ex.Message}");
+            Console.WriteLine($"TransactionService: Exceção ao buscar últimas transações: {ex.Message}");
             return new List<Transaction>();
         }
     }
 
     /// <summary>
-    /// Responsável por exibir total de receitas custos, saldo e total de transações
+    /// Totais do período (dashboard).
     /// </summary>
-    /// <returns>Total de transações</returns>
     public async Task<Profit> GetTotalTransactionsAsync(DateTime? startDate = null, DateTime? endDate = null)
     {
         try
@@ -295,10 +425,7 @@ public class TransactionService
             if (response.IsSuccessStatusCode)
             {
                 var content = await response.Content.ReadAsStringAsync();
-                var totalTransactions = JsonSerializer.Deserialize<Profit>(content, new JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true
-                });
+                var totalTransactions = JsonSerializer.Deserialize<Profit>(content, JsonOptions);
 
                 return totalTransactions ?? new Profit();
             }
@@ -307,20 +434,19 @@ public class TransactionService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"CategoryService: Exceção ao buscar total de transações: {ex.Message}");
+            Console.WriteLine($"TransactionService: Exceção ao buscar total de transações: {ex.Message}");
             return new Profit();
         }
     }
 
     /// <summary>
-    /// Lista de gastos por porcentagem
+    /// Despesas por categoria (dashboard).
     /// </summary>
-    /// <returns>Lista de gastos por porcentagem</returns>
     public async Task<List<ExpenseByCategory>> GetExpensesByCategoryAsync(DateTime? startDate = null, DateTime? endDate = null)
     {
         try
         {
-            string url = "/api/maindashboard/spending-percentage";
+            var url = "/api/maindashboard/spending-percentage";
             if (startDate.HasValue || endDate.HasValue)
             {
                 var query = new List<string>();
@@ -336,10 +462,7 @@ public class TransactionService
             if (response.IsSuccessStatusCode)
             {
                 var content = await response.Content.ReadAsStringAsync();
-                var expensesByCategory = JsonSerializer.Deserialize<List<ExpenseByCategory>>(content, new JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true
-                });
+                var expensesByCategory = JsonSerializer.Deserialize<List<ExpenseByCategory>>(content, JsonOptions);
 
                 return expensesByCategory ?? new List<ExpenseByCategory>();
             }
@@ -348,8 +471,14 @@ public class TransactionService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"CategoryService: Exceção ao buscar despesas por categoria: {ex.Message}");
+            Console.WriteLine($"TransactionService: Exceção ao buscar despesas por categoria: {ex.Message}");
             return new List<ExpenseByCategory>();
         }
+    }
+
+    private sealed class TransactionApiErrorPayload
+    {
+        public string? Message { get; set; }
+        public List<string>? Errors { get; set; }
     }
 }
